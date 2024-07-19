@@ -16,6 +16,7 @@
 #define _POSIX_C_SOURCE 200112L
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <pwd.h>
 #include <signal.h>
@@ -201,4 +202,86 @@ vt100_free(void)
 		// term.cells==NULL is never true in normal usage, but it never
 		// hurts to check.
 		free(term.cells);
+}
+
+static void
+newline(void)
+{
+	// Move everything back a line.
+	memmove(term.cells, term.cells+sizeof(*term.cells)*term.cols, sizeof(*term.cells)*(term.rows-1)*term.cols);
+	
+	// Clear the line.
+	memset(term.cells+(term.rows-1)*term.cols, 0, sizeof(*term.cells)*term.cols);
+}
+
+/* Handles control characters. */
+static void
+control(char c)
+{
+	switch (c) {
+	case '\a': // BEL; Bell
+		// TODO: Implement the bell
+		break;
+	case '\t': // TAB
+		term.col += 8;
+		term.col %= term.cols;
+		break;
+	case '\b': // BS; Backspace
+		term.col = (term.col - 1) % term.cols;
+		break;
+	case '\r': // CR; Carriage return
+		term.col = 0;
+		break;
+	case '\f': // FF; Form feed
+	case '\v': // VT; Vertical tabulation
+		// TODO. st does not implement these.
+	case '\n':
+		if (term.row == term.rows-1)
+			newline();
+		else
+			term.row++;
+		term.col = 0;
+		break;
+	default: /* do nothing */ break;
+	}
+}
+
+static void
+tputc(char c)
+{
+	// Place the char and increment the cursor.
+	term.cells[(term.cols*term.row)+term.col].c = c;
+
+	if (term.col++ >= term.cols-1) {
+		// Move to a new line.
+		if (term.row == term.rows-1)
+			newline();
+		else
+			term.row++;
+		term.col = 0;
+	}
+}
+
+size_t
+vt100_write(char *buf, size_t n)
+{
+	if (n == 0)
+		// No-op
+		return 0;
+
+	// Make sure buf isn't NULL.
+	assert(buf);
+
+	// Loop through all chars.
+	char c;
+	for (int i = 0, c = buf[0]; i < n; ++i,c=buf[i]) {
+		if (iscntrl(c)) {
+			control(c);
+			continue;
+		}
+
+		tputc(c);
+	}
+
+	return n;
 }

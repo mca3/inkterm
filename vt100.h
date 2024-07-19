@@ -32,4 +32,11 @@ int vt100_init(int rows, int cols, char *path, char *argv[]);
 /** Frees all related data with the term struct. */
 void vt100_free(void);
 
+/** Write data to the terminal.
+ * The return value is how many bytes that were read from the input.
+ *
+ * buf must not be null unless n is 0.
+ */
+size_t vt100_write(char *buf, size_t n);
+
 #endif /* ifndef VT100_H */
