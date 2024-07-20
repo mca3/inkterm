@@ -133,6 +133,14 @@ void
 draw(int fb)
 {
 	// Write out contents of screen
+	static int last_row = 0;
+	static int last_col = 0;
+
+	// Redraw the cell that the cursor was on
+	if (last_row != term.row || last_col != term.col)
+		draw_cell(fb, last_row, last_col);
+	last_row = term.row;
+	last_col = term.col;
 
 	// This function is kinda dense because we're doing damage tracking.
 	// Essentially this means that whenever a cell changes, we mark it as
