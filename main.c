@@ -41,6 +41,7 @@ sigchld_handler(int _)
 		// Nothing to do
 		return;
 
+	/*
 	// Something happened, and there's a chance it could be fatal.
 	if (WIFSIGNALED(reason))
 		// TODO: I would like to have human readable signal names here.
@@ -51,6 +52,7 @@ sigchld_handler(int _)
 
 	// Child exited peacefully.
 	exit(0);
+	*/
 }
 
 /* Sets up the child for the psudeoterminal. */
@@ -94,7 +96,7 @@ handle_pty_child(int pty, char *path, char *argv[])
 	unsetenv("TURNCAP");
 	setenv("LOGNAME", pw->pw_name, 1);
 	setenv("USER", pw->pw_name, 1);
-	setenv("SHELL", "/bin/sh", 1); // TODO
+	//setenv("SHELL", "/bin/sh", 1); // TODO
 	setenv("HOME", pw->pw_dir, 1);
 	setenv("TERM", "vt100", 1); // Intentionally hardwired
 	
@@ -122,7 +124,7 @@ draw(int fb)
 			fbc.is_inverted = (x == term.col && y == term.row);
 
 			char c[] = {term.cells[(y*term.cols)+x].c, 0};
-			if (c[0] && c[0] != ' ') fbink_print(fb, c, &fbc);
+			if (c[0]) fbink_print(fb, c, &fbc);
 			else if (fbc.is_inverted) fbink_print(fb, " ", &fbc);
 			// fbink_grid_refresh(fb, 1, 1, &fbc);
 		}
@@ -141,7 +143,7 @@ init_vt100(int rows, int cols, char *args[])
 	case -1: goto fail; break;
 	case 0:	/* child */
 		close(term.pty);
-		handle_pty_child(slave, "/bin/sh", args);
+		handle_pty_child(slave, args[0], args);
 		abort(); /* unreachable */
 		break;
 	default:/* parent */
@@ -169,6 +171,10 @@ int
 main(int argc, char *argv[])
 {
 	char *args[] = {"/bin/sh", NULL};//"-c", "echo \"Hello, world!\"; echo \"$$\"; sleep 1", NULL};
+	char *shell = getenv("SHELL");
+	if (shell) {
+		args[0] = shell;
+	}
 
 	int fb = fbink_open();
 	if (!fb)

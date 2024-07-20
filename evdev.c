@@ -78,10 +78,15 @@ map_code(int code, int val)
 	case KEY_M:		c = 'm'; break;
 	case KEY_BACKSPACE:	c = '\177'; break;
 	case KEY_SPACE:		c = ' '; break;
+	case KEY_SEMICOLON:	c = ';'; break;
+	case KEY_MINUS:		c = '-'; break;
+	case KEY_DOT:		c = '.'; break;
+	case KEY_TAB:		c = '\t'; break;
 	}
 
 	if (mod_state & MOD_SHIFT)
-		return toupper(c);
+		if (c == ';') return ':';
+		else return toupper(c);
 	return c;
 }
 

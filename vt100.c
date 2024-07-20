@@ -35,6 +35,13 @@
 
 struct term term = {0};
 
+/* for esc_state */
+enum {
+	ESC_NONE,
+	ESC_START,
+	ESC_CSI
+};
+
 int
 vt100_init(int rows, int cols, int *slave)
 {
@@ -139,9 +146,131 @@ control(char c)
 	}
 }
 
+static void
+esc(char c)
+{
+	// TODO
+}
+
+static void
+csi(void)
+{
+	int args[16] = {0};
+	int narg = 0, has_arg = 0;
+	int priv = 0;
+
+	// Parse the CSI code.
+	char *buf = term.esc_buf;
+
+	// The first char might be a private mode indicator.
+	if (*buf >= 0x3C && *buf <= 0x3F) { // "<=>?"
+		// Private mode.
+		// TODO: Handle private final byte.
+		priv = 1;
+		*buf++;
+	}
+
+	while (*buf) {
+		if (*buf >= 0x40 && *buf <= 0x7F) {
+			// Final byte.
+			break;
+		}
+
+		// Parse the number and add it on.
+		if (*buf >= '0' && *buf <= '9') {
+			has_arg = 1;
+			args[narg] *= 10;
+			args[narg] += *buf - '0';
+		} else if (*buf == ';' || *buf == ':') {
+			// Next argument.
+			// st allows ; or :, but it only allows one of them.
+			if (narg++ == sizeof(args)/sizeof(*args))
+				// Too many args
+				break;
+		}
+		buf++;
+	}
+
+	if (*buf < 0x40 && *buf > 0x7F) {
+		// This is not a final byte, so the escape code was probably truncated.
+		term.esc_state = ESC_NONE;
+		return;
+	}
+
+	// Do stuff.
+	// Codes are in no particular order.
+	switch (*buf) {
+	case 'A': // CUU; Cursor Up
+		// Implicit 1 if no args given
+		if (!has_arg) args[0] = 1;
+		if (term.row > 0) term.row--;
+		break;
+	case 'B': // CUU; Cursor Down
+		// Implicit 1 if no args given
+		if (!has_arg) args[0] = 1;
+		if (term.row < term.rows-1) term.row++;
+		break;
+	case 'C': // CUU; Cursor Forward
+		// Implicit 1 if no args given
+		if (!has_arg) args[0] = 1;
+		if (term.col < term.cols-1) term.col++;
+		break;
+	case 'D': // CUU; Cursor Back
+		// Implicit 1 if no args given
+		if (!has_arg) args[0] = 1;
+		if (term.col > 0) term.col--;
+		break;
+	case 'n': // DSR; Device status report
+		if (args[0] == 6) {
+			// Get cursor position 
+			int ret = snprintf(term.esc_buf, sizeof(term.esc_buf), "\033[%d;%dR", term.row+1, term.col+1);
+			write(term.pty, term.esc_buf, ret);
+		}
+		break;
+	default:
+		// This space is intentionally left blank.
+		break;
+	}
+
+	term.esc_state = ESC_NONE;
+}
+
 void
 tputc(char c)
 {
+	// Check for control characters.
+	if (iscntrl(c)) {
+		if (c == '\033') {
+			// Prepare for an escape code.
+			term.esc_state = ESC_START;
+			term.esc = 0;
+			memset(term.esc_buf, 0, sizeof(term.esc_buf));
+			return;
+		}
+
+		// Just a regular control character.
+		control(c);
+		return;
+	} else if (term.esc_state == ESC_START) {
+		if (c == '[') {
+			term.esc_state = ESC_CSI;
+			return;
+		}
+		esc(c);
+		term.esc_state = ESC_NONE;
+		return;
+	} else if (term.esc_state == ESC_CSI) {
+		// CSI code.
+		if ((c >= 0x40 && c <= 0x7E) || term.esc+1 > sizeof(term.esc_buf)-1) {
+			// ^ The final byte is in this range
+			csi();
+			term.esc_state = ESC_NONE;
+		}
+
+		term.esc_buf[term.esc++] = c;
+		return;
+	}
+
 	// Place the char and increment the cursor.
 	term.cells[(term.cols*term.row)+term.col].c = c;
 
@@ -168,11 +297,6 @@ vt100_write(char *buf, size_t n)
 	// Loop through all chars.
 	char c;
 	for (int i = 0, c = buf[0]; i < n; ++i,c=buf[i]) {
-		if (iscntrl(c)) {
-			control(c);
-			continue;
-		}
-
 		tputc(c);
 	}
 

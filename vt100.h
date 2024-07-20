@@ -1,6 +1,8 @@
 #ifndef VT100_H
 #define VT100_H
 
+#define ESC_BUFSZ 16
+
 struct cell {
 	char c;
 };
@@ -10,6 +12,10 @@ struct term {
 	int row, col;
 	int pty;
 	struct cell *cells;
+
+	char esc_buf[ESC_BUFSZ];
+	int esc;
+	int esc_state;
 };
 
 extern struct term term;
