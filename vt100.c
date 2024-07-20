@@ -263,6 +263,14 @@ vt100_init(int rows, int cols, int *slave)
 	if (openpty(&term.pty, slave, NULL, NULL, NULL) == -1)
 		goto fail;
 
+	// Set terminal size.
+	// This isn't fatal.
+	struct winsize w = {0};
+	w.ws_row = rows;
+	w.ws_col = cols-1; // TODO: I broke something here!
+	if (ioctl(term.pty, TIOCSWINSZ, &w) < 0)
+		fprintf(stderr, "TIOCSWINSZ failed: %s\n", strerror(errno));
+
 	// Everything was successful.
 	return 0;
 
