@@ -39,6 +39,7 @@ map_code(int code, int val)
 
 	// Handle all "letters" now.
 	switch (code) {
+	case KEY_ESC:		return '\033'; break;
 	case KEY_1:		c = '1'; break;
 	case KEY_2:		c = '2'; break;
 	case KEY_3:		c = '3'; break;
@@ -82,12 +83,27 @@ map_code(int code, int val)
 	case KEY_MINUS:		c = '-'; break;
 	case KEY_DOT:		c = '.'; break;
 	case KEY_TAB:		c = '\t'; break;
+	case KEY_BACKSLASH:	c = '\\'; break;
+	case KEY_SLASH:		c = '/'; break;
 	}
 
 	if (mod_state & MOD_SHIFT)
 		if (c == ';') return ':';
 		else return toupper(c);
 	return c;
+}
+
+static char *
+map_special(int code, int *outlen)
+{
+#define X(kc, out) case kc: *outlen = sizeof((out))-1;return (out);
+	switch (code) {
+	X(KEY_UP,	"\033[A")
+	X(KEY_DOWN,	"\033[B")
+	X(KEY_LEFT,	"\033[D")
+	X(KEY_RIGHT,	"\033[C")
+	}
+	return NULL;
 }
 
 int
@@ -106,10 +122,17 @@ evdev_handle(struct libevdev *dev)
 			       libevdev_event_type_get_name(ev.type),
 			       libevdev_event_code_get_name(ev.type, ev.code),
 			       ev.value);
-			char c = map_code(ev.code, ev.value);
-			if (c) {
-				write(term.pty, &c, 1);
+			int len;
+			char *str;
+			if (ev.value != 0 && (str = map_special(ev.code, &len))) {
+				write(term.pty, str, len);
 				dirty = 1;
+			} else {
+				char c = map_code(ev.code, ev.value);
+				if (c) {
+					write(term.pty, &c, 1);
+					dirty = 1;
+				}
 			}
 		}
 	} while (rc == 1);
