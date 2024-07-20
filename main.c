@@ -113,23 +113,54 @@ handle_pty_child(int pty, char *path, char *argv[])
 	exit(EXIT_FAILURE); /* unreachable, most of the time */
 }
 
+static inline void
+draw_cell(int fb, int y, int x)
+{
+	if (y > term.rows-1 || x > term.cols-1) return;
+	fbc.row = y;
+	fbc.col = x;
+
+	fbc.is_inverted = !!(term.cells[(y*term.cols)+x].attr & ATTR_REVERSE);
+	fbc.is_inverted ^= (x == term.col && y == term.row);
+
+	char c[] = {term.cells[(y*term.cols)+x].c, 0};
+	if (c[0]) fbink_print(fb, c, &fbc);
+	else fbink_print(fb, " ", &fbc);
+	fbink_grid_refresh(fb, 1, 1, &fbc);
+}
+
 void
 draw(int fb)
 {
 	// Write out contents of screen
-	for (int y = 0; y < term.rows; ++y) {
-		for (int x = 0; x < term.cols; ++x) {
-			fbc.row = y;
-			fbc.col = x;
 
-			fbc.is_inverted = !!(term.cells[(y*term.cols)+x].attr & ATTR_REVERSE);
-			fbc.is_inverted ^= (x == term.col && y == term.row);
+	// This function is kinda dense because we're doing damage tracking.
+	// Essentially this means that whenever a cell changes, we mark it as
+	// "damaged", and we need to repaint it.
+	// The loop below here goes through all damage entries (unsigned chars)
+	// and checks to see if there is any damage, and if there is, then we
+	// will repaint the affected cells.
+	int r, c;
+	for (int byt = 0; byt < (term.rows*term.cols)/8; ++byt) {
+		if (!term.damage[byt])
+			// No damage branch. Keep on going.
+			continue;
 
-			char c[] = {term.cells[(y*term.cols)+x].c, 0};
-			if (c[0]) fbink_print(fb, c, &fbc);
-			else fbink_print(fb, " ", &fbc);
-			fbink_grid_refresh(fb, 1, 1, &fbc);
+		// Damage in this region.
+		int idx = byt*8;
+		unsigned char p = term.damage[byt];
+		for (int bit = 0; bit < 8; ++bit) {
+			// Each bit here represents a cell.
+			if (!!(p&(1<<bit))) {
+				// This cell is damaged.
+				r = idx/term.cols;
+				c = (idx+bit)%term.cols;
+				draw_cell(fb, r, c);
+			}
 		}
+
+		// Unmark the damage.
+		term.damage[byt] = 0;
 	}
 }
 
@@ -208,19 +239,23 @@ main(int argc, char *argv[])
 	};
 
 	static char buf[512] = {0};
+	int n, o = 0;
 	while ((rc = poll(pfds, sizeof(pfds)/sizeof(*pfds), 1000) != -1)) {
+		if (pfds[1].revents & POLLIN)
+			evdev_handle(dev);
+
 		if (pfds[0].revents & POLLIN) {
-			int n;
-			if ((n = read(term.pty, buf, sizeof(buf))) == -1)
+			if ((n = read(term.pty, buf+o, sizeof(buf)-o)) == -1)
 				die("read: %s\n", strerror(errno));
 
-			int o = vt100_write(buf, n);
-			memmove(buf, buf+o, sizeof(buf)-o);
-			draw(fb);
+			// TODO: This will be a problem if I ever do UTF-8
+			//o = vt100_write(buf, n+o);
+			vt100_write(buf, n);
+			//memmove(buf, buf+o, sizeof(buf)-o);
+			//o = sizeof(buf)-o;
 		}
-		if (pfds[1].revents & POLLIN) {
-			if (evdev_handle(dev)) draw(fb);
-		}
+
+		draw(fb);
 	}
 	die("poll: %s\n", strerror(errno));
 

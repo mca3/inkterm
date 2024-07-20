@@ -60,6 +60,38 @@ static int attr_table[] = {
 	[8] =	0,		// Invisible
 };
 
+/** Marks a cell at row/col as damaged. */
+static inline void
+damage(int row, int col)
+{
+	assert(row <= term.rows-1);
+	assert(col <= term.cols-1);
+
+	int idx = (row*term.cols)+col;
+	//int bit = idx%8;
+	int byt = idx/8;
+	term.damage[byt] = 0xFF;//|= 1<<(bit);
+}
+
+/** Mark a single line as damage. */
+static inline void
+damageline(int row)
+{
+	// This function is sloppy because I don't care enough to make it not
+	// sloppy.
+
+	for (int i = 0; i < term.cols; ++i)
+		damage(row, i);
+}
+
+/** Mark the entire screen as damaged. */
+static inline void
+damagescr(void)
+{
+	int sz = (term.rows*term.cols)/8;
+	memset(term.damage, 0xFF, sz);
+}
+
 static void
 newline(void)
 {
@@ -68,6 +100,8 @@ newline(void)
 	
 	// Clear the line.
 	memset(term.cells+(term.rows-1)*term.cols, 0, sizeof(*term.cells)*term.cols);
+
+	damagescr();
 }
 
 /* Handles control characters. */
@@ -256,6 +290,12 @@ vt100_init(int rows, int cols, int *slave)
 		goto fail;
 	memset(term.cells, 0, sizeof(*term.cells)*rows*cols); 
 
+	// Setup the damage array.
+	term.damage = malloc(sizeof(*term.damage)*(rows*cols+1));
+	if (!term.damage)
+		goto fail;
+	memset(term.damage, 0, (rows*cols+1)/sizeof(*term.damage)); 
+
 	// Now that the term struct is initialized, we can set up a pty.
 	if (openpty(&term.pty, slave, NULL, NULL, NULL) == -1)
 		goto fail;
@@ -278,6 +318,7 @@ fail:
 	// The pty is closed if we get here, because it is the last step that
 	// can fail.
 
+	if (term.damage) free(term.damage);
 	if (term.cells) free(term.cells);
 
 	// Restore errno
@@ -292,6 +333,11 @@ vt100_free(void)
 	if (term.pty)
 		// Is this a good idea?
 		close(term.pty);
+
+	if (term.damage)
+		// term.damage==NULL is never true in normal usage, but it
+		// never hurts to check.
+		free(term.damage);
 
 	if (term.cells)
 		// term.cells==NULL is never true in normal usage, but it never
@@ -338,6 +384,7 @@ vt100_putc(char c)
 	// Place the char and increment the cursor.
 	term.cells[(term.cols*term.row)+term.col].c = c;
 	term.cells[(term.cols*term.row)+term.col].attr = term.attr;
+	damage(term.row, term.col);
 	vt100_moverel(1, 0);
 }
 
@@ -386,6 +433,8 @@ vt100_moverel(int x, int y)
 void
 vt100_clear(int dir)
 {
+	damagescr();
+
 	switch (dir) {
 	case 0: // ED0; Clear screen from cursor down
 		memset(&term.cells[(term.row*term.cols)+term.col], 0, sizeof(*term.cells)*((term.rows*term.cols)-((term.row*term.cols)+term.col)));
@@ -403,6 +452,8 @@ void
 vt100_clearline(int dir)
 {
 	struct cell *row = &term.cells[(term.row*term.cols)];
+
+	damageline(term.row);
 
 	switch (dir) {
 	case 0: // EL0; Clear line from cursor right
