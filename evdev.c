@@ -32,6 +32,13 @@ map_code(int code, int val)
 		else
 			mod_state &= ~MOD_SHIFT;
 		return 0;
+	case KEY_LEFTCTRL:
+	case KEY_RIGHTCTRL:
+		if (val)
+			mod_state |= MOD_CTRL;
+		else
+			mod_state &= ~MOD_CTRL;
+		return 0;
 	}
 
 	if (val == 0)
@@ -89,7 +96,12 @@ map_code(int code, int val)
 
 	if (mod_state & MOD_SHIFT)
 		if (c == ';') return ':';
+		else if (c >= '0' && c <= '9') return ("!@#$%^&*()")[c-'0'];
+		else if (c == '-') return '_';
+		else if (c == '=') return '+';
 		else return toupper(c);
+	else if (mod_state & MOD_CTRL)
+		if (c >= 'A' && c <= 'Z') return c-'A';
 	return c;
 }
 
