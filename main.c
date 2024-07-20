@@ -126,8 +126,8 @@ draw(int fb)
 
 			char c[] = {term.cells[(y*term.cols)+x].c, 0};
 			if (c[0]) fbink_print(fb, c, &fbc);
-			else if (fbc.is_inverted) fbink_print(fb, " ", &fbc);
-			// fbink_grid_refresh(fb, 1, 1, &fbc);
+			else fbink_print(fb, " ", &fbc);
+			fbink_grid_refresh(fb, 1, 1, &fbc);
 		}
 	}
 }

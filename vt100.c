@@ -42,64 +42,6 @@ enum {
 	ESC_CSI
 };
 
-int
-vt100_init(int rows, int cols, int *slave)
-{
-	int old_errno;
-
-	// Sanity checks
-	assert(rows > 0);
-	assert(cols > 0);
-	assert(slave);
-
-	// Initialize the term struct.
-	memset(&term, 0, sizeof(term));
-
-	// Set fields
-	term.rows = rows;
-	term.cols = cols;
-
-	// Set up the cells array.
-	term.cells = malloc(sizeof(*term.cells)*rows*cols);
-	if (!term.cells)
-		goto fail;
-	memset(term.cells, 0, sizeof(*term.cells)*rows*cols); 
-
-	// Now that the term struct is initialized, we can set up a pty.
-	if (openpty(&term.pty, slave, NULL, NULL, NULL) == -1)
-		goto fail;
-
-	// Everything was successful.
-	return 0;
-
-fail:
-	// Everything below only matters if term is not NULL.
-	old_errno = errno; /* free can set errno */
-
-	// The pty is closed if we get here, because it is the last step that
-	// can fail.
-
-	if (term.cells) free(term.cells);
-
-	// Restore errno
-	errno = old_errno;
-
-	return -1;
-}
-
-void
-vt100_free(void)
-{
-	if (term.pty)
-		// Is this a good idea?
-		close(term.pty);
-
-	if (term.cells)
-		// term.cells==NULL is never true in normal usage, but it never
-		// hurts to check.
-		free(term.cells);
-}
-
 static void
 newline(void)
 {
@@ -235,8 +177,66 @@ csi(void)
 	term.esc_state = ESC_NONE;
 }
 
+int
+vt100_init(int rows, int cols, int *slave)
+{
+	int old_errno;
+
+	// Sanity checks
+	assert(rows > 0);
+	assert(cols > 0);
+	assert(slave);
+
+	// Initialize the term struct.
+	memset(&term, 0, sizeof(term));
+
+	// Set fields
+	term.rows = rows;
+	term.cols = cols;
+
+	// Set up the cells array.
+	term.cells = malloc(sizeof(*term.cells)*rows*cols);
+	if (!term.cells)
+		goto fail;
+	memset(term.cells, 0, sizeof(*term.cells)*rows*cols); 
+
+	// Now that the term struct is initialized, we can set up a pty.
+	if (openpty(&term.pty, slave, NULL, NULL, NULL) == -1)
+		goto fail;
+
+	// Everything was successful.
+	return 0;
+
+fail:
+	// Everything below only matters if term is not NULL.
+	old_errno = errno; /* free can set errno */
+
+	// The pty is closed if we get here, because it is the last step that
+	// can fail.
+
+	if (term.cells) free(term.cells);
+
+	// Restore errno
+	errno = old_errno;
+
+	return -1;
+}
+
 void
-tputc(char c)
+vt100_free(void)
+{
+	if (term.pty)
+		// Is this a good idea?
+		close(term.pty);
+
+	if (term.cells)
+		// term.cells==NULL is never true in normal usage, but it never
+		// hurts to check.
+		free(term.cells);
+}
+
+void
+vt100_putc(char c)
 {
 	// Check for control characters.
 	if (iscntrl(c)) {
@@ -297,7 +297,7 @@ vt100_write(char *buf, size_t n)
 	// Loop through all chars.
 	char c;
 	for (int i = 0, c = buf[0]; i < n; ++i,c=buf[i]) {
-		tputc(c);
+		vt100_putc(c);
 	}
 
 	return n;
