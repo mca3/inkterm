@@ -122,7 +122,8 @@ draw(int fb)
 			fbc.row = y;
 			fbc.col = x;
 
-			fbc.is_inverted = (x == term.col && y == term.row);
+			fbc.is_inverted = !!(term.cells[(y*term.cols)+x].attr & ATTR_REVERSE);
+			fbc.is_inverted ^= (x == term.col && y == term.row);
 
 			char c[] = {term.cells[(y*term.cols)+x].c, 0};
 			if (c[0]) fbink_print(fb, c, &fbc);

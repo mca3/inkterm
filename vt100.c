@@ -42,6 +42,24 @@ enum {
 	ESC_CSI
 };
 
+// This table is for the \033[X;Ym type sequences.
+// We only support single digit ones.
+// And in fact of those we support two: reset and reverse.
+//
+// When an attribute is applied, the value here is XOR'd onto term.attr the
+// attribute being enabled is 0 (reset).
+static int attr_table[] = {
+	[0] =	0,		// Reset
+	[1] =	0,		// Bold
+	[2] =	0,		// Low intensity
+	[3] =	0,		// N/A
+	[4] =	0,		// Underline
+	[5] =	0,		// Blinking
+	[6] =	0,		// N/A
+	[7] =	ATTR_REVERSE,	// Reverse
+	[8] =	0,		// Invisible
+};
+
 static void
 newline(void)
 {
@@ -196,6 +214,13 @@ csi(void)
 			break;
 		}
 		break;
+	case 'm': // SGR; Set character attribute
+		if (!has_arg) narg=1,args[0]=0;
+		for (int i = 0; i < narg; i++) {
+			if (args[i] == 0) term.attr = 0;
+			else if (i < sizeof(attr_table)/sizeof(*attr_table)) term.attr ^= attr_table[i];
+		}
+		break;
 	case 'n': // DSR; Device status report
 		if (args[0] == 6) {
 			// Get cursor position 
@@ -307,6 +332,7 @@ vt100_putc(char c)
 
 	// Place the char and increment the cursor.
 	term.cells[(term.cols*term.row)+term.col].c = c;
+	term.cells[(term.cols*term.row)+term.col].attr = term.attr;
 	vt100_moverel(1, 0);
 }
 

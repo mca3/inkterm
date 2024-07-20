@@ -3,8 +3,16 @@
 
 #define ESC_BUFSZ 64
 
+//#define ATTR_BOLD	(1 << 0)
+//#define ATTR_LOW	(1 << 1)
+//#define ATTR_UNDERLINE	(1 << 2)
+//#define ATTR_BLINK	(1 << 3)
+#define ATTR_REVERSE	(1 << 4)
+//#define ATTR_INVIS	(1 << 5)
+
 struct cell {
 	char c;
+	char attr;
 };
 
 struct term {
@@ -12,6 +20,8 @@ struct term {
 	int row, col;
 	int pty;
 	struct cell *cells;
+
+	char attr;
 
 	char esc_buf[ESC_BUFSZ];
 	int esc;
