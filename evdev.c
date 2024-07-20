@@ -76,7 +76,7 @@ map_code(int code, int val)
 	case KEY_B:		c = 'b'; break;
 	case KEY_N:		c = 'n'; break;
 	case KEY_M:		c = 'm'; break;
-	case KEY_BACKSPACE:	c = '\b'; break;
+	case KEY_BACKSPACE:	c = '\177'; break;
 	case KEY_SPACE:		c = ' '; break;
 	}
 
