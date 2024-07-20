@@ -13,21 +13,19 @@ struct term {
 };
 
 extern struct term term;
-extern int child_pid;
 
 /** Initializes the terminal with the number of rows and cols.
  * All data is overwritten in the passed struct.
  *
- * A child process is created and calls execv(path, argv).
- * Please make sure path exists and argv has a NULL terminator.
+ * vt100_init does not concern itself with who is on the other side of the PTY
+ * and how it is set up.
  *
- * t must be non-null, or an assertion will be raised.
+ * slave must be non NULL or an assertion is raised.
  * rows and cols must be non-zero and positive or an assertion will be raised.
- * path and argv must not be NULL or an assertion is raised.
  *
  * If memory was unable to be allocated, -1 is returned and errno is set.
  */
-int vt100_init(int rows, int cols, char *path, char *argv[]);
+int vt100_init(int rows, int cols, int *slave);
 
 /** Frees all related data with the term struct. */
 void vt100_free(void);
