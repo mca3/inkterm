@@ -153,7 +153,7 @@ draw(int fb)
 			// Each bit here represents a cell.
 			if (!!(p&(1<<bit))) {
 				// This cell is damaged.
-				r = idx/term.cols;
+				r = (idx+bit)/term.cols;
 				c = (idx+bit)%term.cols;
 				draw_cell(fb, r, c);
 			}
