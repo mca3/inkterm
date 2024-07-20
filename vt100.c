@@ -96,10 +96,10 @@ static void
 newline(void)
 {
 	// Move everything back a line.
-	memmove(term.cells, term.cells+sizeof(*term.cells)*term.cols, sizeof(*term.cells)*(term.rows-1)*term.cols);
+	memmove(term.cells, &term.cells[term.cols], sizeof(*term.cells)*(term.rows-1)*term.cols);
 	
 	// Clear the line.
-	memset(term.cells+(term.rows-1)*term.cols, 0, sizeof(*term.cells)*term.cols);
+	memset(&term.cells[(term.rows-1)*term.cols], 0, sizeof(*term.cells)*term.cols);
 
 	damagescr();
 }
@@ -426,6 +426,7 @@ vt100_moverel(int x, int y)
 		term.row = 0;
 	else while (term.row > term.rows-1) {
 		newline();
+		term.col=0;
 		term.row--;
 	}
 }
