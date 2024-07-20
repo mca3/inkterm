@@ -246,7 +246,7 @@ control(char c)
 	}
 }
 
-static void
+void
 tputc(char c)
 {
 	// Place the char and increment the cursor.

@@ -39,4 +39,6 @@ void vt100_free(void);
  */
 size_t vt100_write(char *buf, size_t n);
 
+void tputc(char c);
+
 #endif /* ifndef VT100_H */
