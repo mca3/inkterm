@@ -26,8 +26,10 @@ FBInk/Release/libfbink.so:
 .PHONY: clean check
 
 check: test
-	./test < testdata/wrap.in | cmp - testdata/wrap.out
-	./test < testdata/scroll.in | cmp - testdata/scroll.out
+	@for i in testdata/*.in; do \
+		printf '%s\n' "$$i"; \
+		./test < "$$i" | cmp - "$${i%.in}.out"; \
+	done
 
 clean:
 	rm -f $(OBJ)

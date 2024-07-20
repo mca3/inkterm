@@ -112,8 +112,12 @@ control(char c)
 		// TODO: Implement the bell
 		break;
 	case '\t': // TAB
-		term.col += 8;
-		term.col %= term.cols;
+		// Add 8 chars and round down to nearest 8.
+		term.col = (term.col + 8) & ~0x3;
+		if (term.col >= term.cols-1) {
+			// Limit to the last column.
+			term.col = term.cols-2;
+		}
 		break;
 	case '\b': // BS; Backspace
 		term.col = (term.col - 1) % term.cols;
