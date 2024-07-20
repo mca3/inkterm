@@ -36,6 +36,9 @@ int vt100_init(int rows, int cols, int *slave);
 /** Frees all related data with the term struct. */
 void vt100_free(void);
 
+/** Writes the specified character to the terminal. */
+void vt100_putc(char c);
+
 /** Write data to the terminal.
  * The return value is how many bytes that were read from the input.
  *
@@ -43,7 +46,8 @@ void vt100_free(void);
  */
 size_t vt100_write(char *buf, size_t n);
 
-/** Writes the specified character to the terminal. */
-void vt100_putc(char c);
+/** Move the cursor in a relative fashion.
+ * This will scroll as needed. */
+void vt100_moverel(int x, int y);
 
 #endif /* ifndef VT100_H */

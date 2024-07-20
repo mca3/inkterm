@@ -69,7 +69,7 @@ control(char c)
 		}
 		break;
 	case '\b': // BS; Backspace
-		term.col = (term.col - 1) % term.cols;
+		vt100_moverel(-1, 0);
 		break;
 	case '\r': // CR; Carriage return
 		term.col = 0;
@@ -78,11 +78,7 @@ control(char c)
 	case '\v': // VT; Vertical tabulation
 		// TODO. st does not implement these.
 	case '\n':
-		if (term.row == term.rows-1)
-			newline();
-		else
-			term.row++;
-		term.col = 0;
+		vt100_moverel(0, 1);
 		break;
 	default: /* do nothing */ break;
 	}
@@ -145,22 +141,22 @@ csi(void)
 	case 'A': // CUU; Cursor Up
 		// Implicit 1 if no args given
 		if (!has_arg) args[0] = 1;
-		if (term.row > 0) term.row--;
+		if (term.row > 0) vt100_moverel(0, -term.row);
 		break;
 	case 'B': // CUU; Cursor Down
 		// Implicit 1 if no args given
 		if (!has_arg) args[0] = 1;
-		if (term.row < term.rows-1) term.row++;
+		if (term.row < term.rows-1) vt100_moverel(0, term.row);
 		break;
 	case 'C': // CUU; Cursor Forward
 		// Implicit 1 if no args given
 		if (!has_arg) args[0] = 1;
-		if (term.col < term.cols-1) term.col++;
+		if (term.col < term.cols-1) vt100_moverel(term.col, 0);
 		break;
 	case 'D': // CUU; Cursor Back
 		// Implicit 1 if no args given
 		if (!has_arg) args[0] = 1;
-		if (term.col > 0) term.col--;
+		if (term.col > 0) vt100_moverel(-term.col, 0);
 		break;
 	case 'n': // DSR; Device status report
 		if (args[0] == 6) {
@@ -273,15 +269,7 @@ vt100_putc(char c)
 
 	// Place the char and increment the cursor.
 	term.cells[(term.cols*term.row)+term.col].c = c;
-
-	if (term.col++ >= term.cols-1) {
-		// Move to a new line.
-		if (term.row == term.rows-1)
-			newline();
-		else
-			term.row++;
-		term.col = 0;
-	}
+	vt100_moverel(1, 0);
 }
 
 size_t
@@ -301,4 +289,33 @@ vt100_write(char *buf, size_t n)
 	}
 
 	return n;
+}
+
+void
+vt100_moverel(int x, int y)
+{
+	term.row += y;
+	term.col += x;
+
+	// Bounds check col
+	if (term.col < 0)
+		term.col = 0;
+	else while (term.col > term.cols-1) {
+		term.col -= term.cols;
+		term.row++;
+	}
+
+	// Bounds check row
+	if (term.row < 0)
+		term.row = 0;
+	else while (term.row > term.rows-1) {
+		newline();
+		term.row--;
+	}
+}
+
+void
+vt100_clear(void)
+{
+	memset(term.cells, 0, sizeof(*term.cells)*term.rows*term.cols);
 }
