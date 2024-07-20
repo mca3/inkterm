@@ -195,7 +195,8 @@ main(int argc, char *argv[])
 	fd = open("/dev/input/event2", O_RDONLY|O_NONBLOCK); // Very temporary
 	if (flock(fd, LOCK_EX) == -1)
 		die("failed to get exclusive lock for evdev: %s\n", strerror(errno));
-	if (ioctl(fd, EVIOCGRAB, 1) == -1)
+	rc = 1;
+	if (ioctl(fd, EVIOCGRAB, &rc) == -1)
 		die("failed to grab event deivce: %s\n", strerror(errno));
 	
 	if (rc = libevdev_new_from_fd(fd, &dev) == -1)
