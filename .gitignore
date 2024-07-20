@@ -1,2 +1,6 @@
-/inkterm
 *.o
+*.gcno
+*.gcda
+/inkterm
+/test
+/coverage*
