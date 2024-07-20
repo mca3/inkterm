@@ -2,7 +2,7 @@ CC = cc
 CFLAGS = -O0 -std=c99 -pedantic -g -IFBInk `pkg-config --cflags libevdev`
 LDFLAGS = -L./FBInk/Release -lfbink `pkg-config --libs libevdev`
 
-OBJ = main.o vt100.o
+OBJ = main.o vt100.o evdev.o
 
 %.o: %.c
 	$(CC) -c -o $@ $(CFLAGS) $<
