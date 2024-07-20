@@ -75,8 +75,12 @@ control(char c)
 		term.col = 0;
 		break;
 	case '\f': // FF; Form feed
+		// This is ^L which I use quite often.	
+		vt100_clear();
+		term.row = term.col = 0;
+		break;
 	case '\v': // VT; Vertical tabulation
-		// TODO. st does not implement these.
+		// ???
 	case '\n':
 		vt100_moverel(0, 1);
 		break;
@@ -105,7 +109,7 @@ csi(void)
 		// Private mode.
 		// TODO: Handle private final byte.
 		priv = 1;
-		*buf++;
+		buf++;
 	}
 
 	while (*buf) {
@@ -158,6 +162,14 @@ csi(void)
 		if (!has_arg) args[0] = 1;
 		if (term.col > 0) vt100_moverel(-term.col, 0);
 		break;
+	case 'H': // CUP; Set cursor pos
+	case 'f': // CUP; Set cursor pos
+		if (!has_arg) args[0] = args[1] = 1; // Doubles as home
+		term.row = args[0] - 1;
+		term.col = args[1] - 1;
+		if (term.row > term.rows-1) term.row = term.rows-1;
+		if (term.col > term.cols-1) term.col = term.cols-1;
+		break;
 	case 'n': // DSR; Device status report
 		if (args[0] == 6) {
 			// Get cursor position 
@@ -166,7 +178,7 @@ csi(void)
 		}
 		break;
 	default:
-		// This space is intentionally left blank.
+		fprintf(stderr, "unknown CSI code %s (type = %c/0x%02x)\n", term.esc_buf, *buf, *buf);
 		break;
 	}
 
@@ -257,13 +269,13 @@ vt100_putc(char c)
 		return;
 	} else if (term.esc_state == ESC_CSI) {
 		// CSI code.
+		term.esc_buf[term.esc++] = c;
 		if ((c >= 0x40 && c <= 0x7E) || term.esc+1 > sizeof(term.esc_buf)-1) {
 			// ^ The final byte is in this range
 			csi();
 			term.esc_state = ESC_NONE;
 		}
 
-		term.esc_buf[term.esc++] = c;
 		return;
 	}
 

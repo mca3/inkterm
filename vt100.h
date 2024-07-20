@@ -1,7 +1,7 @@
 #ifndef VT100_H
 #define VT100_H
 
-#define ESC_BUFSZ 16
+#define ESC_BUFSZ 64
 
 struct cell {
 	char c;
@@ -49,5 +49,8 @@ size_t vt100_write(char *buf, size_t n);
 /** Move the cursor in a relative fashion.
  * This will scroll as needed. */
 void vt100_moverel(int x, int y);
+
+/** Clear the screen. */
+void vt100_clear(void);
 
 #endif /* ifndef VT100_H */
