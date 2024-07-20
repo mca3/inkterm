@@ -18,6 +18,7 @@ struct cell {
 struct term {
 	int rows, cols;
 	int row, col;
+	int oldrow, oldcol;
 	int pty;
 	struct cell *cells;
 
@@ -60,7 +61,22 @@ size_t vt100_write(char *buf, size_t n);
  * This will scroll as needed. */
 void vt100_moverel(int x, int y);
 
-/** Clear the screen. */
-void vt100_clear(void);
+/** Clear the screen.
+ * 
+ * 0 clears from cursor down.
+ * 1 clears from cursor up.
+ * 2 clears the entire screen.
+ * Anything else does nothing.
+ */
+void vt100_clear(int dir);
+
+/** Clear a line on the screen.
+ * 
+ * 0 clears to the right of the cursor.
+ * 1 clears to the left of the cursor.
+ * 2 clears the entire line.
+ * Anything else does nothing.
+ */
+void vt100_clearline(int dir);
 
 #endif /* ifndef VT100_H */

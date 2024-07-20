@@ -94,7 +94,7 @@ control(char c)
 		break;
 	case '\f': // FF; Form feed
 		// This is ^L which I use quite often.	
-		vt100_clear();
+		vt100_clear(2);
 		term.row = term.col = 0;
 		break;
 	case '\v': // VT; Vertical tabulation
@@ -109,7 +109,24 @@ control(char c)
 static void
 esc(char c)
 {
-	// TODO
+	switch (c) {
+	case '7': // DECSC; DEC Save Cursor
+		term.oldrow = term.row;
+		term.oldcol = term.col;
+		break;
+	case '8': // DECRC; DEC Restore Cursor
+		term.row = term.oldrow;
+		term.col = term.oldcol;
+
+		// Don't go over
+		if (term.row >= term.rows-1)
+			term.row = term.rows-2;
+		if (term.col >= term.cols-1)
+			term.col = term.cols-2;
+
+		break;
+	default: /* do nothing */ break;
+	}
 }
 
 static void
@@ -189,30 +206,10 @@ csi(void)
 		if (term.col > term.cols-1) term.col = term.cols-1;
 		break;
 	case 'J': // Clear screen
-		switch (args[0]) {
-		case 0: // ED0; Clear screen from cursor down
-			memset(&term.cells[(term.row*term.cols)+term.col], 0, sizeof(*term.cells)*(term.rows*term.cols)-((term.row*term.cols)+term.col));
-			break;
-		case 1: // ED1; Clear screen from cursor up
-			memset(&term.cells[(term.row*term.cols)+term.col], 0, sizeof(*term.cells)*((term.row*term.cols)+term.col));
-			break;
-		case 2: // ED2; Clear screen
-			vt100_clear();
-			break;
-		}
+		vt100_clear(args[0]);
 		break;
 	case 'K': // Clear line
-		switch (args[0]) {
-		case 0: // EL0; Clear line from cursor right
-			memset(&term.cells[(term.row*term.cols)+term.col], 0, sizeof(*term.cells)*(term.cols-term.col-2));
-			break;
-		case 1: // EL1; Clear line from cursor left
-			memset(&term.cells[(term.row*term.cols)], 0, sizeof(*term.cells)*(term.col-1));
-			break;
-		case 2: // EL2; Clear line
-			memset(&term.cells[(term.row*term.cols)], 0, sizeof(*term.cells)*(term.cols-1));
-			break;
-		}
+		vt100_clearline(args[0]);
 		break;
 	case 'm': // SGR; Set character attribute
 		if (!has_arg) narg=1,args[0]=0;
@@ -387,7 +384,35 @@ vt100_moverel(int x, int y)
 }
 
 void
-vt100_clear(void)
+vt100_clear(int dir)
 {
-	memset(term.cells, 0, sizeof(*term.cells)*term.rows*term.cols);
+	switch (dir) {
+	case 0: // ED0; Clear screen from cursor down
+		memset(&term.cells[(term.row*term.cols)+term.col], 0, sizeof(*term.cells)*((term.rows*term.cols)-((term.row*term.cols)+term.col)));
+		break;
+	case 1: // ED1; Clear screen from cursor up
+		memset(term.cells, 0, sizeof(*term.cells)*((term.row*term.cols)+term.col));
+		break;
+	case 2: // ED2; Clear screen
+		memset(term.cells, 0, sizeof(*term.cells)*term.rows*term.cols);
+		break;
+	}
+}
+
+void
+vt100_clearline(int dir)
+{
+	struct cell *row = &term.cells[(term.row*term.cols)];
+
+	switch (dir) {
+	case 0: // EL0; Clear line from cursor right
+		memset(row+term.col, 0, sizeof(*row)*(term.cols-term.col-2));
+		break;
+	case 1: // EL1; Clear line from cursor left
+		memset(row, 0, sizeof(*row)*(term.col-1));
+		break;
+	case 2: // EL2; Clear line
+		memset(row, 0, sizeof(*row)*(term.cols-1));
+		break;
+	}
 }
