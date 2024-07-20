@@ -145,22 +145,22 @@ csi(void)
 	case 'A': // CUU; Cursor Up
 		// Implicit 1 if no args given
 		if (!has_arg) args[0] = 1;
-		if (term.row > 0) vt100_moverel(0, -term.row);
+		if (term.row > 0) vt100_moverel(0, -args[0]);
 		break;
 	case 'B': // CUU; Cursor Down
 		// Implicit 1 if no args given
 		if (!has_arg) args[0] = 1;
-		if (term.row < term.rows-1) vt100_moverel(0, term.row);
+		if (term.row < term.rows-1) vt100_moverel(0, args[0]);
 		break;
 	case 'C': // CUU; Cursor Forward
 		// Implicit 1 if no args given
 		if (!has_arg) args[0] = 1;
-		if (term.col < term.cols-1) vt100_moverel(term.col, 0);
+		if (term.col < term.cols-1) vt100_moverel(args[0], 0);
 		break;
 	case 'D': // CUU; Cursor Back
 		// Implicit 1 if no args given
 		if (!has_arg) args[0] = 1;
-		if (term.col > 0) vt100_moverel(-term.col, 0);
+		if (term.col > 0) vt100_moverel(-args[0], 0);
 		break;
 	case 'H': // CUP; Set cursor pos
 	case 'f': // CUP; Set cursor pos
@@ -169,6 +169,32 @@ csi(void)
 		term.col = args[1] - 1;
 		if (term.row > term.rows-1) term.row = term.rows-1;
 		if (term.col > term.cols-1) term.col = term.cols-1;
+		break;
+	case 'J': // Clear screen
+		switch (args[0]) {
+		case 0: // ED0; Clear screen from cursor down
+			memset(&term.cells[(term.row*term.cols)+term.col], 0, sizeof(*term.cells)*(term.rows*term.cols)-((term.row*term.cols)+term.col));
+			break;
+		case 1: // ED1; Clear screen from cursor up
+			memset(&term.cells[(term.row*term.cols)+term.col], 0, sizeof(*term.cells)*((term.row*term.cols)+term.col));
+			break;
+		case 2: // ED2; Clear screen
+			vt100_clear();
+			break;
+		}
+		break;
+	case 'K': // Clear line
+		switch (args[0]) {
+		case 0: // EL0; Clear line from cursor right
+			memset(&term.cells[(term.row*term.cols)+term.col], 0, sizeof(*term.cells)*(term.cols-term.col-2));
+			break;
+		case 1: // EL1; Clear line from cursor left
+			memset(&term.cells[(term.row*term.cols)], 0, sizeof(*term.cells)*(term.col-1));
+			break;
+		case 2: // EL2; Clear line
+			memset(&term.cells[(term.row*term.cols)], 0, sizeof(*term.cells)*(term.cols-1));
+			break;
+		}
 		break;
 	case 'n': // DSR; Device status report
 		if (args[0] == 6) {
