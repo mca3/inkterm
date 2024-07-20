@@ -218,7 +218,7 @@ csi(void)
 		if (!has_arg) narg=1,args[0]=0;
 		for (int i = 0; i < narg; i++) {
 			if (args[i] == 0) term.attr = 0;
-			else if (i < sizeof(attr_table)/sizeof(*attr_table)) term.attr ^= attr_table[i];
+			else if (args[i] < sizeof(attr_table)/sizeof(*attr_table)) term.attr ^= attr_table[i];
 		}
 		break;
 	case 'n': // DSR; Device status report
