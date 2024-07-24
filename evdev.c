@@ -96,7 +96,7 @@ map_code(int code, int val)
 
 	if (mod_state & MOD_SHIFT)
 		if (c == ';') return ':';
-		else if (c >= '0' && c <= '9') return ("!@#$%^&*()")[c-'0'];
+		else if (c >= '0' && c <= '9') return (")!@#$%^&*(")[c-'0'];
 		else if (c == '-') return '_';
 		else if (c == '=') return '+';
 		else return toupper(c);
