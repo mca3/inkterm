@@ -92,6 +92,8 @@ map_code(int code, int val)
 	case KEY_TAB:		c = '\t'; break;
 	case KEY_BACKSLASH:	c = '\\'; break;
 	case KEY_SLASH:		c = '/'; break;
+	case KEY_COMMA:		c = ','; break;
+	case KEY_APOSTROPHE:	c = '\''; break;
 	}
 
 	if (mod_state & MOD_SHIFT)
@@ -99,6 +101,10 @@ map_code(int code, int val)
 		else if (c >= '0' && c <= '9') return (")!@#$%^&*(")[c-'0'];
 		else if (c == '-') return '_';
 		else if (c == '=') return '+';
+		else if (c == '.') return '>';
+		else if (c == '/') return '?';
+		else if (c == ',') return '<';
+		else if (c == '\'') return '"';
 		else return toupper(c);
 	else if (mod_state & MOD_CTRL)
 		if (c >= 'A' && c <= 'Z') return c-'A';
