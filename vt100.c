@@ -97,19 +97,14 @@ newline(int firstcol)
 {
 	if (term.row < term.rows-1) {
 		// There's still space on the screen, just move down one.
-		term.row++;
-
 		// Move to the first column if requested.
-		if (firstcol)
-			term.col = 0;
+		vt100_move(firstcol ? 0 : term.col, term.row+1);
 
 		return;
 	}
 
 	// No space left on the screen.
-	if (term.row > term.rows-1)
-		// This is unlikely, but it can't hurt to check.
-		term.row = term.rows-1;
+	assert(term.row <= term.rows-1); // Sanity check
 
 	// Move everything back a line.
 	memmove(term.cells, &term.cells[term.cols], sizeof(*term.cells)*(term.rows-1)*term.cols);
@@ -121,8 +116,7 @@ newline(int firstcol)
 	damagescr();
 
 	// Move to the first column if requested.
-	if (firstcol)
-		term.col = 0;
+	vt100_move(firstcol ? 0 : term.col, term.row);
 }
 
 /* Handles control characters. */
@@ -135,22 +129,19 @@ control(char c)
 		break;
 	case '\t': // TAB
 		// Add 8 chars and round down to nearest 8.
-		term.col = (term.col + 8) & ~0x3;
-		if (term.col >= term.cols-1) {
-			// Limit to the last column.
-			term.col = term.cols-2;
-		}
+		// WRAPNEXT is automatically unset.
+		vt100_move((term.col + 8) & ~0x7, term.row);
 		break;
 	case '\b': // BS; Backspace
 		vt100_moverel(-1, 0);
 		break;
 	case '\r': // CR; Carriage return
-		term.col = 0;
+		vt100_move(0, term.row);
 		break;
 	case '\f': // FF; Form feed
 		// This is ^L which I use quite often.	
 		vt100_clear(2);
-		term.row = term.col = 0;
+		vt100_move(0, 0);
 		break;
 	case '\v': // VT; Vertical tabulation
 		// ???
@@ -174,10 +165,10 @@ esc(char c)
 		term.col = term.oldcol;
 
 		// Don't go over
-		if (term.row >= term.rows-1)
-			term.row = term.rows-2;
-		if (term.col >= term.cols-1)
-			term.col = term.cols-2;
+		if (term.row > term.rows-1)
+			term.row = term.rows-1;
+		if (term.col > term.cols-1)
+			term.col = term.cols-1;
 
 		break;
 	default: /* do nothing */ break;
@@ -255,10 +246,7 @@ csi(void)
 	case 'H': // CUP; Set cursor pos
 	case 'f': // CUP; Set cursor pos
 		if (!has_arg) args[0] = args[1] = 1; // Doubles as home
-		term.row = args[0] - 1;
-		term.col = args[1] - 1;
-		if (term.row > term.rows-1) term.row = term.rows-1;
-		if (term.col > term.cols-1) term.col = term.cols-1;
+		vt100_move(args[1]-1, args[0]-1);
 		break;
 	case 'J': // Clear screen
 		vt100_clear(args[0]);
@@ -325,7 +313,7 @@ vt100_init(int rows, int cols, int *slave)
 	// This isn't fatal.
 	struct winsize w = {0};
 	w.ws_row = rows;
-	w.ws_col = cols-1; // TODO: I broke something here!
+	w.ws_col = cols; // TODO: I broke something here!
 	if (ioctl(term.pty, TIOCSWINSZ, &w) < 0)
 		fprintf(stderr, "TIOCSWINSZ failed: %s\n", strerror(errno));
 
@@ -402,15 +390,30 @@ vt100_putc(char c)
 		return;
 	}
 
+	assert(term.row >= 0 && term.row <= term.rows-1);
+	assert(term.col >= 0 && term.col <= term.cols-1);
+
+	// If WRAPNEXT is set, wrap around to a new line.
+	if (term.state & STATE_WRAPNEXT) {
+		// This is the only time this is true.
+		assert(term.col == term.cols-1);
+
+		// Note: WRAPNEXT will be unset if needed by the call to
+		// vt100_moverel.
+		newline(1);
+	}
+
 	// Place the char and increment the cursor.
 	term.cells[(term.cols*term.row)+term.col].c = c;
 	term.cells[(term.cols*term.row)+term.col].attr = term.attr;
 	damage(term.row, term.col);
 
-	if (term.col+1 > term.cols-1)
-		newline(1);
-	else
+	// Move forward a column if it doesn't go off screen.
+	// If it does, don't move forward and wrap on the next character.
+	if (term.col < term.cols-1)
 		vt100_moverel(1, 0);
+	else
+		term.state |= STATE_WRAPNEXT;
 }
 
 size_t
@@ -443,6 +446,11 @@ vt100_move(int x, int y)
 	else if (term.col > term.cols-1) term.col = term.cols-1;
 	if (term.row < 0) term.row = 0;
 	else if (term.row > term.rows-1) term.row = term.rows-1;
+
+	// Unset STATE_WRAPNEXT.
+	// If STATE_WRAPNEXT is set, then the next character that is put on the
+	// screen will wrap around; often this is not what we want.
+	term.state &= ~STATE_WRAPNEXT;
 }
 
 void

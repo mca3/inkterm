@@ -10,6 +10,10 @@
 #define ATTR_REVERSE		(1 << 4)
 //#define ATTR_INVIS		(1 << 5)
 
+/** Used to control if the terminal will wrap to another line on the next
+ * character. */
+#define STATE_WRAPNEXT		(1 << 0)
+
 struct cell {
 	char c;
 	char attr;
@@ -60,7 +64,7 @@ void vt100_putc(char c);
 size_t vt100_write(char *buf, size_t n);
 
 /** Move the cursor in an absolute fashion. */
-void vt100_moverel(int x, int y);
+void vt100_move(int x, int y);
 
 /** Move the cursor in a relative fashion. */
 void vt100_moverel(int x, int y);
