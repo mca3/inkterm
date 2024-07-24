@@ -488,13 +488,13 @@ vt100_clearline(int dir)
 
 	switch (dir) {
 	case 0: // EL0; Clear line from cursor right
-		memset(row+term.col, 0, sizeof(*row)*(term.cols-term.col-2));
+		memset(row+term.col, 0, sizeof(*row)*(term.cols-term.col));
 		break;
 	case 1: // EL1; Clear line from cursor left
-		memset(row, 0, sizeof(*row)*(term.col-1));
+		memset(row, 0, sizeof(*row)*(term.col));
 		break;
 	case 2: // EL2; Clear line
-		memset(row, 0, sizeof(*row)*(term.cols-1));
+		memset(row, 0, sizeof(*row)*(term.cols));
 		break;
 	}
 }
