@@ -23,6 +23,10 @@ struct term {
 	int rows, cols;
 	int row, col;
 	int oldrow, oldcol;
+
+	/** These are for DECSTBM. */
+	int margin_top, margin_bottom;
+
 	int pty;
 	struct cell *cells;
 	unsigned char *damage;

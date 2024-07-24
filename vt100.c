@@ -64,8 +64,8 @@ static int attr_table[] = {
 static inline void
 damage(int row, int col)
 {
-	assert(row <= term.rows-1);
-	assert(col <= term.cols-1);
+	assert(row >= 0 && row <= term.rows-1);
+	assert(col >= 0 && col <= term.cols-1);
 
 	int idx = (row*term.cols)+col;
 	//int bit = idx%8;
@@ -95,7 +95,7 @@ damagescr(void)
 static void
 newline(int firstcol)
 {
-	if (term.row < term.rows-1) {
+	if (term.row < term.margin_bottom) {
 		// There's still space on the screen, just move down one.
 		// Move to the first column if requested.
 		vt100_move(firstcol ? 0 : term.col, term.row+1);
@@ -106,14 +106,25 @@ newline(int firstcol)
 	// No space left on the screen.
 	assert(term.row <= term.rows-1); // Sanity check
 
-	// Move everything back a line.
-	memmove(term.cells, &term.cells[term.cols], sizeof(*term.cells)*(term.rows-1)*term.cols);
+	// Move everything back a line, taking into account the margins.
+	// Assertions are to make sure the margins are in line with what they should be.
+	assert(term.margin_top >= 0 && term.margin_top < term.margin_bottom);
+	assert(term.margin_bottom > term.margin_top && term.margin_bottom <= term.rows-1);
+	memmove(
+		&term.cells[term.margin_top*term.cols],
+		&term.cells[(term.margin_top+1)*term.cols],
+		sizeof(*term.cells)*((term.margin_bottom-term.margin_top)*term.cols)
+	);
 	
-	// Clear the line.
-	memset(&term.cells[(term.rows-1)*term.cols], 0, sizeof(*term.cells)*term.cols);
+	// Clear the new line.
+	memset(&term.cells[term.margin_bottom*term.cols], 0, sizeof(*term.cells)*term.cols);
 
-	// Everything may have been updated.
-	damagescr();
+	// Damage everything in between the margins.
+	// If the margins are 0 and term.rows-1, then damage the screen.
+	if (term.margin_top == 0 && term.margin_bottom == term.rows-1)
+		damagescr();
+	else for (int row = term.margin_top; row < term.margin_bottom; ++row)
+		damageline(row);
 
 	// Move to the first column if requested.
 	vt100_move(firstcol ? 0 : term.col, term.row);
@@ -161,15 +172,7 @@ esc(char c)
 		term.oldcol = term.col;
 		break;
 	case '8': // DECRC; DEC Restore Cursor
-		term.row = term.oldrow;
-		term.col = term.oldcol;
-
-		// Don't go over
-		if (term.row > term.rows-1)
-			term.row = term.rows-1;
-		if (term.col > term.cols-1)
-			term.col = term.cols-1;
-
+		vt100_move(term.oldcol, term.oldrow);
 		break;
 	default: /* do nothing */ break;
 	}
@@ -207,7 +210,7 @@ csi(void)
 		} else if (*buf == ';' || *buf == ':') {
 			// Next argument.
 			// st allows ; or :, but it only allows one of them.
-			if (narg++ == sizeof(args)/sizeof(*args))
+			if (++narg == sizeof(args)/sizeof(*args))
 				// Too many args
 				break;
 		}
@@ -268,6 +271,13 @@ csi(void)
 			write(term.pty, term.esc_buf, ret);
 		}
 		break;
+	case 'r': // DECSTBM; Set Top and Bottom Margins
+		if (!has_arg) args[0]=1,args[1]=term.rows;
+		else if (args[0] >= args[1]) break;
+		term.margin_top = args[0]-1;
+		term.margin_bottom = args[1]-1;
+		vt100_move(0,0);
+		break;
 	default:
 		fprintf(stderr, "unknown CSI code %s (type = %c/0x%02x)\n", term.esc_buf, *buf, *buf);
 		break;
@@ -292,6 +302,9 @@ vt100_init(int rows, int cols, int *slave)
 	// Set fields
 	term.rows = rows;
 	term.cols = cols;
+
+	// The bottom margin is always the number of rows unless explicitly set otherwise.
+	term.margin_bottom = rows-1;
 
 	// Set up the cells array.
 	term.cells = malloc(sizeof(*term.cells)*rows*cols);
