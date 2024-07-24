@@ -93,15 +93,36 @@ damagescr(void)
 }
 
 static void
-newline(void)
+newline(int firstcol)
 {
+	if (term.row < term.rows-1) {
+		// There's still space on the screen, just move down one.
+		term.row++;
+
+		// Move to the first column if requested.
+		if (firstcol)
+			term.col = 0;
+
+		return;
+	}
+
+	// No space left on the screen.
+	if (term.row > term.rows-1)
+		// This is unlikely, but it can't hurt to check.
+		term.row = term.rows-1;
+
 	// Move everything back a line.
 	memmove(term.cells, &term.cells[term.cols], sizeof(*term.cells)*(term.rows-1)*term.cols);
 	
 	// Clear the line.
 	memset(&term.cells[(term.rows-1)*term.cols], 0, sizeof(*term.cells)*term.cols);
 
+	// Everything may have been updated.
 	damagescr();
+
+	// Move to the first column if requested.
+	if (firstcol)
+		term.col = 0;
 }
 
 /* Handles control characters. */
@@ -134,7 +155,7 @@ control(char c)
 	case '\v': // VT; Vertical tabulation
 		// ???
 	case '\n':
-		vt100_moverel(0, 1);
+		newline(0);
 		break;
 	default: /* do nothing */ break;
 	}
@@ -385,7 +406,11 @@ vt100_putc(char c)
 	term.cells[(term.cols*term.row)+term.col].c = c;
 	term.cells[(term.cols*term.row)+term.col].attr = term.attr;
 	damage(term.row, term.col);
-	vt100_moverel(1, 0);
+
+	if (term.col+1 > term.cols-1)
+		newline(1);
+	else
+		vt100_moverel(1, 0);
 }
 
 size_t
@@ -408,27 +433,24 @@ vt100_write(char *buf, size_t n)
 }
 
 void
+vt100_move(int x, int y)
+{
+	term.row = y;
+	term.col = x;
+
+	// Bounds check
+	if (term.col < 0) term.col = 0;
+	else if (term.col > term.cols-1) term.col = term.cols-1;
+	if (term.row < 0) term.row = 0;
+	else if (term.row > term.rows-1) term.row = term.rows-1;
+}
+
+void
 vt100_moverel(int x, int y)
 {
-	term.row += y;
-	term.col += x;
-
-	// Bounds check col
-	if (term.col < 0)
-		term.col = 0;
-	else while (term.col > term.cols-1) {
-		term.col -= term.cols;
-		term.row++;
-	}
-
-	// Bounds check row
-	if (term.row < 0)
-		term.row = 0;
-	else while (term.row > term.rows-1) {
-		newline();
-		term.col=0;
-		term.row--;
-	}
+	// This function exists so I don't have to rewrite code.
+	// TODO: Rewrite code, remove this function.
+	vt100_move(term.col+x, term.row+y);
 }
 
 void

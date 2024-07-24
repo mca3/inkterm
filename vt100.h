@@ -24,6 +24,7 @@ struct term {
 	unsigned char *damage;
 
 	char attr;
+	char state;
 
 	char esc_buf[ESC_BUFSZ];
 	int esc;
@@ -58,8 +59,10 @@ void vt100_putc(char c);
  */
 size_t vt100_write(char *buf, size_t n);
 
-/** Move the cursor in a relative fashion.
- * This will scroll as needed. */
+/** Move the cursor in an absolute fashion. */
+void vt100_moverel(int x, int y);
+
+/** Move the cursor in a relative fashion. */
 void vt100_moverel(int x, int y);
 
 /** Clear the screen.
