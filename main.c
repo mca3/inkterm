@@ -17,7 +17,7 @@
 #include <libevdev/libevdev.h>
 #include <linux/input.h>
 
-#include "vt100.h"
+#include "vt/vt100.h"
 #include "evdev.h"
 #include "x.h"
 
