@@ -183,7 +183,7 @@ csi(void)
 {
 	int args[16] = {0};
 	int narg = 0, has_arg = 0;
-	int priv = 0;
+	// int priv = 0;
 
 	// Parse the CSI code.
 	char *buf = term.esc_buf;
@@ -192,7 +192,7 @@ csi(void)
 	if (*buf >= 0x3C && *buf <= 0x3F) { // "<=>?"
 		// Private mode.
 		// TODO: Handle private final byte.
-		priv = 1;
+		// priv = 1;
 		buf++;
 	}
 
@@ -440,7 +440,6 @@ vt100_write(char *buf, size_t n)
 	assert(buf);
 
 	// Loop through all chars.
-	char c;
 	for (int i = 0, c = buf[0]; i < n; ++i,c=buf[i]) {
 		vt100_putc(c);
 	}

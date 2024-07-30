@@ -1,5 +1,5 @@
 CC = cc
-CFLAGS = -O0 -std=c99 -pedantic -g -IFBInk `pkg-config --cflags libevdev`
+CFLAGS = -O0 -std=c99 -pedantic -Wall -Werror -g -IFBInk `pkg-config --cflags libevdev`
 LDFLAGS = -L./FBInk/Release -lfbink `pkg-config --libs libevdev`
 
 OBJ = vt100.o evdev.o

@@ -221,13 +221,17 @@ main(int argc, char *argv[])
 	if (!fb)
 		die("fbink_open failed: %s\n", strerror(errno));
 
-	int r;
 	FBInkState s;
-	r = fbink_init(fb, &fbc);
+	if (fbink_init(fb, &fbc) != EXIT_SUCCESS) {
+		// Header says that this should only happen on reMarkable devices.
+		die("failed to initialize fbink\n");
+	}
+
 	fbink_cls(fb, &fbc, NULL, 0);
 	fbink_get_state(&fbc, &s);
 
-	assert(init_vt100(s.max_rows, s.max_cols, args) != -1);
+	if (init_vt100(s.max_rows, s.max_cols, args) != 0)
+		die("failed to init vt: %s\n", strerror(errno));
 
 	struct libevdev *dev = NULL;
 	int fd, rc;
@@ -238,7 +242,7 @@ main(int argc, char *argv[])
 	if (ioctl(fd, EVIOCGRAB, &rc) == -1)
 		die("failed to grab event deivce: %s\n", strerror(errno));
 	
-	if (rc = libevdev_new_from_fd(fd, &dev) == -1)
+	if ((rc = libevdev_new_from_fd(fd, &dev)) == -1)
 		die("failed to init libevdev: %s\n", strerror(-rc));
 
 	struct pollfd pfds[] = {
