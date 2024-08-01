@@ -1,7 +1,6 @@
-*.a
-*.gcda
-*.gcno
 *.o
-/coverage*
+*.gcno
+*.gcda
 /inkterm
-/vt/test
+/test
+/coverage*

@@ -1,32 +1,40 @@
-include ./config.mk
+CC = cc
+CFLAGS = -O0 -std=c99 -pedantic -Wall -Werror -g -IFBInk `pkg-config --cflags libevdev`
+LDFLAGS = -L./FBInk/Release -lfbink `pkg-config --libs libevdev`
 
-ALL_CFLAGS = $(CFLAGS) $(LIBEVDEV_CFLAGS) $(FBINK_CFLAGS) -Ivt
-ALL_LDFLAGS = $(LDFLAGS) $(LIBEVDEV_LDFLAGS) $(FBINK_LDFLAGS) -Lvt -lvt
+OBJ = vt100.o evdev.o
+PROG = main.o test.o
 
-OBJ = main.o evdev.o
+ifdef GCOV
+	CFLAGS+=-fprofile-arcs -ftest-coverage
+endif
 
 %.o: %.c
-	$(CC) -c -o $@ $(ALL_CFLAGS) $<
+	$(CC) -c -o $@ $(CFLAGS) $<
 
 all: inkterm
 
-inkterm: FBInk/Release/libfbink.so vt/libvt.a $(OBJ)
-	$(CC) -o $@ $(ALL_CFLAGS) $^ $(ALL_LDFLAGS) 
+inkterm: FBInk/Release/libfbink.so main.o $(OBJ)
+	$(CC) -o $@ $(CFLAGS) main.o $(OBJ) $(LDFLAGS) 
+
+test: test.o $(OBJ)
+	$(CC) -o $@ $(CFLAGS) test.o $(OBJ) $(LDFLAGS) 
 
 FBInk/Release/libfbink.so:
 	$(MAKE) -C FBInk LINUX=1 MINIMAL=1 BITMAP=1 DRAW=1 FONTS=1 shared 
 
-vt/libvt.a:
-	$(MAKE) -C vt libvt.a
-
 .PHONY: clean check
 
-check:
-	$(MAKE) -C vt check
+check: test
+	@for i in testdata/*.in; do \
+		printf '%s\n' "$$i"; \
+		./test < "$$i" | cmp - "$${i%.in}.out"; \
+	done
 
 clean:
 	rm -f $(OBJ)
 	rm -f $(OBJ:.o=.gcno) $(OBJ:.o=.gcda)
-	rm -f inkterm
+	rm -f $(PROG)
+	rm -f $(PROG:.o=.gcno) $(PROG:.o=.gcda)
+	rm -f inkterm test
 	#$(MAKE) -C FBInk clean
-	$(MAKE) -C vt clean
