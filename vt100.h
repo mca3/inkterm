@@ -14,8 +14,10 @@
  * character. */
 #define STATE_WRAPNEXT		(1 << 0)
 
+#include "utf8.h"
+
 struct cell {
-	char c;
+	rune c;
 	char attr;
 };
 
@@ -58,14 +60,14 @@ int vt100_init(int rows, int cols, int *slave);
 void vt100_free(void);
 
 /** Writes the specified character to the terminal. */
-void vt100_putc(char c);
+void vt100_putr(rune c);
 
 /** Write data to the terminal.
  * The return value is how many bytes that were read from the input.
  *
  * buf must not be null unless n is 0.
  */
-size_t vt100_write(char *buf, size_t n);
+size_t vt100_write(unsigned char *buf, size_t n);
 
 /** Move the cursor in an absolute fashion. */
 void vt100_move(int x, int y);

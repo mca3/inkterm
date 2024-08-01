@@ -52,8 +52,8 @@ sigchld_handler(int _)
 		die("child exited with status code %d\n", WEXITSTATUS(reason));
 
 	// Child exited peacefully.
-	exit(0);
 	*/
+	exit(0);
 }
 
 /* Sets up the child for the psudeoterminal. */
@@ -123,9 +123,10 @@ draw_cell(int fb, int y, int x)
 	fbc.is_inverted = !!(term.cells[(y*term.cols)+x].attr & ATTR_REVERSE);
 	fbc.is_inverted ^= (x == term.col && y == term.row);
 
-	char c[] = {term.cells[(y*term.cols)+x].c, 0};
-	if (c[0]) fbink_print(fb, c, &fbc);
-	else fbink_print(fb, " ", &fbc);
+	if (term.cells[(y*term.cols)+x].c) {
+		unsigned char *c = utf8_encode(term.cells[(y*term.cols)+x].c, NULL);
+		fbink_print(fb, (char *)c, &fbc);
+	} else fbink_print(fb, " ", &fbc);
 	fbink_grid_refresh(fb, 1, 1, &fbc);
 }
 
@@ -235,7 +236,7 @@ main(int argc, char *argv[])
 
 	struct libevdev *dev = NULL;
 	int fd, rc;
-	fd = open("/dev/input/event2", O_RDONLY|O_NONBLOCK); // Very temporary
+	fd = open("/dev/input/event1", O_RDONLY|O_NONBLOCK); // Very temporary
 	if (flock(fd, LOCK_EX) == -1)
 		die("failed to get exclusive lock for evdev: %s\n", strerror(errno));
 	rc = 1;
@@ -250,7 +251,7 @@ main(int argc, char *argv[])
 		{ .fd = fd, .events = POLLIN },
 	};
 
-	static char buf[512] = {0};
+	static unsigned char buf[512] = {0};
 	int n, o = 0;
 	while ((rc = poll(pfds, sizeof(pfds)/sizeof(*pfds), 1000) != -1)) {
 		if (pfds[1].revents & POLLIN)
@@ -260,11 +261,9 @@ main(int argc, char *argv[])
 			if ((n = read(term.pty, buf+o, sizeof(buf)-o)) == -1)
 				die("read: %s\n", strerror(errno));
 
-			// TODO: This will be a problem if I ever do UTF-8
-			//o = vt100_write(buf, n+o);
-			vt100_write(buf, n);
-			//memmove(buf, buf+o, sizeof(buf)-o);
-			//o = sizeof(buf)-o;
+			o = vt100_write(buf, n+o);
+			memmove(buf, buf+o, sizeof(buf)-o);
+			o = n-o;
 		}
 
 		draw(fb);

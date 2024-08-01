@@ -30,6 +30,7 @@
 #include <util.h>
 #endif
 
+#include "utf8.h"
 #include "vt100.h"
 #include "x.h"
 
@@ -132,7 +133,7 @@ newline(int firstcol)
 
 /* Handles control characters. */
 static void
-control(char c)
+control(rune c)
 {
 	switch (c) {
 	case '\a': // BEL; Bell
@@ -164,7 +165,7 @@ control(char c)
 }
 
 static void
-esc(char c)
+esc(rune c)
 {
 	switch (c) {
 	case '7': // DECSC; DEC Save Cursor
@@ -368,10 +369,10 @@ vt100_free(void)
 }
 
 void
-vt100_putc(char c)
+vt100_putr(rune c)
 {
 	// Check for control characters.
-	if (iscntrl(c)) {
+	if (c <= 0x1F) {
 		if (c == '\033') {
 			// Prepare for an escape code.
 			term.esc_state = ESC_START;
@@ -393,7 +394,7 @@ vt100_putc(char c)
 		return;
 	} else if (term.esc_state == ESC_CSI) {
 		// CSI code.
-		term.esc_buf[term.esc++] = c;
+		term.esc_buf[term.esc++] = c&0xFF;
 		if ((c >= 0x40 && c <= 0x7E) || term.esc+1 > sizeof(term.esc_buf)-1) {
 			// ^ The final byte is in this range
 			csi();
@@ -430,7 +431,7 @@ vt100_putc(char c)
 }
 
 size_t
-vt100_write(char *buf, size_t n)
+vt100_write(unsigned char *buf, size_t n)
 {
 	if (n == 0)
 		// No-op
@@ -440,8 +441,12 @@ vt100_write(char *buf, size_t n)
 	assert(buf);
 
 	// Loop through all chars.
-	for (int i = 0, c = buf[0]; i < n; ++i,c=buf[i]) {
-		vt100_putc(c);
+	int i,j;
+	for (i=j=0; i < n; i+=j) {
+		rune r = 0;
+		if ((j = utf8_decode(buf+i, n-i, &r)) == 0)
+			return i;
+		vt100_putr(r);
 	}
 
 	return n;

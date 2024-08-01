@@ -17,11 +17,11 @@ draw(void)
 	// Write out contents of screen
 	for (int y = 0; y < term.rows; ++y) {
 		for (int x = 0; x < term.cols; ++x) {
-			char c = term.cells[(y*term.cols)+x].c;
-			if (c) putchar(c);
-			else putchar(' ');
+			unsigned char *c = utf8_encode(term.cells[(y*term.cols)+x].c, NULL);
+			if (term.cells[(y*term.cols)+x].c) write(STDOUT_FILENO, c, strlen((char*)c)); // valid!
+			else write(STDOUT_FILENO, " ", 1);
 		}
-		putchar('\n');
+		write(STDOUT_FILENO, "\n", 1);
 	}
 }
 
@@ -40,7 +40,7 @@ main(int argc, char *argv[])
 	// Shuffle data between stdin and the PTY
 	// This assumes everything just works (it might)
 	int n, o = 0;
-	static char buf[512] = {0};
+	static unsigned char buf[512] = {0};
 	while ((n = read(STDIN_FILENO, buf+o, sizeof(buf)-o)) > 0) {
 		o = vt100_write(buf, n+o);
 
