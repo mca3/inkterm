@@ -259,10 +259,12 @@ csi(void)
 		vt100_clearline(args[0]);
 		break;
 	case 'm': // SGR; Set character attribute
-		if (!has_arg) narg=1,args[0]=0;
+		if (!has_arg) narg=1,args[0]=1;
 		for (int i = 0; i < narg; i++) {
+			args[i]--; // One indexed
+
 			if (args[i] == 0) term.attr = 0;
-			else if (args[i] < sizeof(attr_table)/sizeof(*attr_table)) term.attr ^= attr_table[i];
+			else if (args[i] < sizeof(attr_table)/sizeof(*attr_table)) term.attr ^= attr_table[args[i]];
 		}
 		break;
 	case 'n': // DSR; Device status report
