@@ -273,8 +273,13 @@ csi(void)
 		}
 		break;
 	case 'r': // DECSTBM; Set Top and Bottom Margins
-		if (!has_arg) args[0]=1,args[1]=term.rows;
-		else if (args[0] >= args[1]) break;
+		if (!args[0]) args[0] = 1;
+		if (!args[1]) args[1] = term.rows;
+
+		// Make sure the two arguments are actually sensible.
+		if (args[0] >= args[1]) break;
+		else if (args[0] <= 0 || args[0] <= term.rows) break;
+		else if (args[1] <= 0 || args[1] <= term.rows) break;
 		term.margin_top = args[0]-1;
 		term.margin_bottom = args[1]-1;
 		vt100_move(0,0);
