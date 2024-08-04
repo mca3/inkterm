@@ -16,10 +16,10 @@
 
 int evdev_fd = -1;
 
-static struct libevdev *evdev_ctx;
-static struct xkb_context *xkb_ctx;
-static struct xkb_keymap *xkb_keymap;
-static struct xkb_state *xkb_state;
+static struct libevdev *evdev_ctx = NULL;
+static struct xkb_context *xkb_ctx = NULL;
+static struct xkb_keymap *xkb_keymap = NULL;
+static struct xkb_state *xkb_state = NULL;
 
 #define MOD_SHIFT (1 << 0)
 #define MOD_ALT   (1 << 1)
