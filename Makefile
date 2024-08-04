@@ -1,6 +1,6 @@
 CC = cc
-CFLAGS = -O0 -std=c99 -pedantic -Wall -Werror -g -IFBInk `pkg-config --cflags libevdev`
-LDFLAGS = -L./FBInk/Release -lfbink `pkg-config --libs libevdev`
+CFLAGS = -O0 -std=c99 -pedantic -Wall -Werror -g -IFBInk `pkg-config --cflags libevdev xkbcommon`
+LDFLAGS = -L./FBInk/Release -lfbink `pkg-config --libs libevdev xkbcommon`
 
 OBJ = vt100.o evdev.o utf8.o
 PROG = main.o test.o

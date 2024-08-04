@@ -234,28 +234,19 @@ main(int argc, char *argv[])
 	if (init_vt100(s.max_rows, s.max_cols, args) != 0)
 		die("failed to init vt: %s\n", strerror(errno));
 
-	struct libevdev *dev = NULL;
-	int fd, rc;
-	fd = open("/dev/input/event1", O_RDONLY|O_NONBLOCK); // Very temporary
-	if (flock(fd, LOCK_EX) == -1)
-		die("failed to get exclusive lock for evdev: %s\n", strerror(errno));
-	rc = 1;
-	if (ioctl(fd, EVIOCGRAB, &rc) == -1)
-		die("failed to grab event deivce: %s\n", strerror(errno));
-	
-	if ((rc = libevdev_new_from_fd(fd, &dev)) == -1)
-		die("failed to init libevdev: %s\n", strerror(-rc));
+	if (evdev_init("/dev/input/event2") == -1)
+		die("failed to init evdev: %s\n", strerror(errno));
 
 	struct pollfd pfds[] = {
 		{ .fd = term.pty, .events = POLLIN },
-		{ .fd = fd, .events = POLLIN },
+		{ .fd = evdev_fd, .events = POLLIN },
 	};
 
 	static unsigned char buf[512] = {0};
-	int n, o = 0;
+	int n, o = 0, rc;
 	while ((rc = poll(pfds, sizeof(pfds)/sizeof(*pfds), 1000) != -1)) {
 		if (pfds[1].revents & POLLIN)
-			evdev_handle(dev);
+			evdev_handle();
 
 		if (pfds[0].revents & POLLIN) {
 			if ((n = read(term.pty, buf+o, sizeof(buf)-o)) == -1)
@@ -271,5 +262,6 @@ main(int argc, char *argv[])
 	die("poll: %s\n", strerror(errno));
 
 	fbink_close(fb);
+	evdev_free();
 	vt100_free();
 }

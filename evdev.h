@@ -3,12 +3,20 @@
 
 #include <libevdev/libevdev.h>
 
-/** Handles evdev events as they come in and writes keys to the terminal pty.
- * If characters have been written, then this function will return 1.
- * Otherwise, it will return 0.
+/** File descriptor that evdev is reading from.
+ * Set to be non-blocking. */
+extern int evdev_fd;
+
+/** Initializes evdev and xkbcommon to read keyboard events from eventfile.
  *
- * dev must not be NULL.
+ * Returns -1 on error.
  */
-int evdev_handle(struct libevdev *dev);
+int evdev_init(char *eventfile);
+
+/** Frees evdev and xkbcommon stuff. */
+void evdev_free(void);
+
+/** Handles evdev events as they come in and writes keys to the terminal pty. */
+void evdev_handle(void);
 
 #endif /* EVDEV_H */
