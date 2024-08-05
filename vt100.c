@@ -183,7 +183,7 @@ static void
 csi(void)
 {
 	int args[16] = {0};
-	int narg = 0, has_arg = 0;
+	int narg = 0;
 	// int priv = 0;
 
 	// Parse the CSI code.
@@ -197,7 +197,7 @@ csi(void)
 		buf++;
 	}
 
-	while (*buf) {
+	for (; *buf; buf++) {
 		if (*buf >= 0x40 && *buf <= 0x7F) {
 			// Final byte.
 			break;
@@ -205,9 +205,11 @@ csi(void)
 
 		// Parse the number and add it on.
 		if (*buf >= '0' && *buf <= '9') {
-			has_arg = 1;
-			args[narg] *= 10;
-			args[narg] += *buf - '0';
+			if (!narg)
+				narg=1;
+
+			args[narg-1] *= 10;
+			args[narg-1] += *buf - '0';
 		} else if (*buf == ';' || *buf == ':') {
 			// Next argument.
 			// st allows ; or :, but it only allows one of them.
@@ -215,7 +217,6 @@ csi(void)
 				// Too many args
 				break;
 		}
-		buf++;
 	}
 
 	if (*buf < 0x40 && *buf > 0x7F) {
@@ -229,27 +230,27 @@ csi(void)
 	switch (*buf) {
 	case 'A': // CUU; Cursor Up
 		// Implicit 1 if no args given
-		if (!has_arg) args[0] = 1;
+		if (!narg) args[0] = 1;
 		if (term.row > 0) vt100_moverel(0, -args[0]);
 		break;
 	case 'B': // CUU; Cursor Down
 		// Implicit 1 if no args given
-		if (!has_arg) args[0] = 1;
+		if (!narg) args[0] = 1;
 		if (term.row < term.rows-1) vt100_moverel(0, args[0]);
 		break;
 	case 'C': // CUU; Cursor Forward
 		// Implicit 1 if no args given
-		if (!has_arg) args[0] = 1;
+		if (!narg) args[0] = 1;
 		if (term.col < term.cols-1) vt100_moverel(args[0], 0);
 		break;
 	case 'D': // CUU; Cursor Back
 		// Implicit 1 if no args given
-		if (!has_arg) args[0] = 1;
+		if (!narg) args[0] = 1;
 		if (term.col > 0) vt100_moverel(-args[0], 0);
 		break;
 	case 'H': // CUP; Set cursor pos
 	case 'f': // CUP; Set cursor pos
-		if (!has_arg) args[0] = args[1] = 1; // Doubles as home
+		if (!narg) args[0] = args[1] = 1; // Doubles as home
 		vt100_move(args[1]-1, args[0]-1);
 		break;
 	case 'J': // Clear screen
@@ -259,7 +260,7 @@ csi(void)
 		vt100_clearline(args[0]);
 		break;
 	case 'm': // SGR; Set character attribute
-		if (!has_arg) narg=1,args[0]=1;
+		if (!narg) narg=1,args[0]=1;
 		for (int i = 0; i < narg; i++) {
 			args[i]--; // One indexed
 
