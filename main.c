@@ -127,7 +127,7 @@ draw_cell(int fb, int y, int x)
 		unsigned char *c = utf8_encode(term.cells[(y*term.cols)+x].c, NULL);
 		fbink_print(fb, (char *)c, &fbc);
 	} else fbink_print(fb, " ", &fbc);
-	fbink_grid_refresh(fb, 1, 1, &fbc);
+	// fbink_grid_refresh(fb, 1, 1, &fbc);
 }
 
 void
@@ -137,7 +137,7 @@ draw(int fb)
 	static int last_row = 0;
 	static int last_col = 0;
 
-	// Redraw the cell that the cursor was on
+	// Redraw the cell that the cursor was last on
 	if (last_row != term.row || last_col != term.col)
 		draw_cell(fb, last_row, last_col);
 	last_row = term.row;
@@ -171,6 +171,11 @@ draw(int fb)
 		// Unmark the damage.
 		term.damage[byt] = 0;
 	}
+
+	// Always draw the cursor last.
+	// Might be wasting some cycles since it could have gotten drawn above,
+	// but whatever.
+	draw_cell(fb, term.row, term.col);
 }
 
 int
