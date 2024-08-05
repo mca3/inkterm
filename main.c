@@ -214,6 +214,30 @@ fail:
 	return -1;
 }
 
+void
+readterm(void)
+{
+	static unsigned char buf[512] = {0};
+	static int len = 0;
+	int n, written;
+
+	// Read from the pty.
+	// We offset by len in case there is any data left over (probably an
+	// incomplete UTF-8 sequence)
+	if ((n = read(term.pty, buf+len, sizeof(buf)-len)) == -1)
+		die("read: %s\n", strerror(errno));
+
+	// Write to the terminal emulator.
+	// There is potential for it to be an incomplete write, because again,
+	// UTF-8.
+	len += n;
+	written = vt100_write(buf, len);
+	len -= written;
+
+	// Move back if needed.
+	memmove(buf, buf+written, len);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -247,22 +271,20 @@ main(int argc, char *argv[])
 		{ .fd = evdev_fd, .events = POLLIN },
 	};
 
-	static unsigned char buf[512] = {0};
-	int n, o = 0, rc;
+	int rc;
 	while ((rc = poll(pfds, sizeof(pfds)/sizeof(*pfds), 1000) != -1)) {
 		if (pfds[1].revents & POLLIN)
+			// Key press, probably
 			evdev_handle();
 
 		if (pfds[0].revents & POLLIN) {
-			if ((n = read(term.pty, buf+o, sizeof(buf)-o)) == -1)
-				die("read: %s\n", strerror(errno));
+			// Activity from the pty.
+			readterm();
 
-			o = vt100_write(buf, n+o);
-			memmove(buf, buf+o, sizeof(buf)-o);
-			o = n-o;
+			// Draw here because this is when stuff can change on
+			// the screen.
+			draw(fb);
 		}
-
-		draw(fb);
 	}
 	die("poll: %s\n", strerror(errno));
 
