@@ -28,6 +28,10 @@ static FBInkConfig fbc = {
 
 static int child_pid;
 
+/** Turning this knob up or down will increase throughput at the cost of screen
+ * update latency. */
+static int draw_timeout = 10;
+
 static void
 sigchld_handler(int _)
 {
@@ -271,21 +275,40 @@ main(int argc, char *argv[])
 		{ .fd = evdev_fd, .events = POLLIN },
 	};
 
+	// Main event loop.
+	// Note: writing controls whether we are waiting for more input or not.
+	// To make things a little faster, we wait for stuff to finish being
+	// sent to the VT before actually drawing; once the timeout is passed
+	// with no data, only then do we draw.
 	int rc;
-	while ((rc = poll(pfds, sizeof(pfds)/sizeof(*pfds), 1000) != -1)) {
-		if (pfds[1].revents & POLLIN)
+	int writing = 0;
+	while ((rc = poll(pfds, sizeof(pfds)/sizeof(*pfds), writing ? draw_timeout : -1)) != -1) {
+		// Check to see if this was a timeout after data was being
+		// written to the terminal.
+		if (rc == 0 && writing) {
+			// It was. Set timeout to infinity and draw.
+			writing = 0;
+			draw(fb);
+
+			// rc == 0 so there is nothing more to do.
+			continue;
+		}
+
+		if (pfds[1].revents & POLLIN) {
 			// Key press, probably
 			evdev_handle();
+		}
 
 		if (pfds[0].revents & POLLIN) {
 			// Activity from the pty.
 			readterm();
 
-			// Draw here because this is when stuff can change on
-			// the screen.
-			draw(fb);
+			// More data might be coming in, so wait before
+			// actually doing anything.
+			writing = 1;
 		}
 	}
+
 	die("poll: %s\n", strerror(errno));
 
 	fbink_close(fb);
