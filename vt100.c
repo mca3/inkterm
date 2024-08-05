@@ -69,9 +69,9 @@ damage(int row, int col)
 	assert(col >= 0 && col <= term.cols-1);
 
 	int idx = (row*term.cols)+col;
-	//int bit = idx%8;
+	int bit = idx%8;
 	int byt = idx/8;
-	term.damage[byt] = 0xFF;//|= 1<<(bit);
+	term.damage[byt] |= 1<<(bit);
 }
 
 /** Mark a single line as damage. */
