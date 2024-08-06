@@ -98,7 +98,7 @@ handle_pty_child(int pty, char *path, char *argv[])
 	// Setup environment.
 	unsetenv("COLUMNS");
 	unsetenv("LINES");
-	unsetenv("TURNCAP");
+	unsetenv("TERMCAP");
 	setenv("LOGNAME", pw->pw_name, 1);
 	setenv("USER", pw->pw_name, 1);
 	//setenv("SHELL", "/bin/sh", 1); // TODO
