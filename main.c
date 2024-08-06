@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <poll.h>
 #include <pwd.h>
 #include <signal.h>
@@ -283,6 +284,17 @@ main(int argc, char *argv[])
 		args[0] = shell;
 	}
 
+	// TODO: Fancy automatic detection of keyboards goes here
+	char *event_file = "/dev/input/event2";
+
+	int opt;
+	while ((opt = getopt(argc, argv, "e:")) != -1) {
+		switch (opt) {
+		case 'e': event_file = optarg; break;
+		default: die("unknown flag '%c'\n", opt);
+		}
+	}
+
 	int fb = fbink_open();
 	if (!fb)
 		die("fbink_open failed: %s\n", strerror(errno));
@@ -299,7 +311,7 @@ main(int argc, char *argv[])
 	if (init_vt100(s.max_rows, s.max_cols, args) != 0)
 		die("failed to init vt: %s\n", strerror(errno));
 
-	if (evdev_init("/dev/input/event2") == -1)
+	if (evdev_init(event_file) == -1)
 		die("failed to init evdev: %s\n", strerror(errno));
 
 	struct pollfd pfds[] = {
