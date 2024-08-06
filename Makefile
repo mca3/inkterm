@@ -52,7 +52,7 @@ libevdev/build/libevdev.a: libevdev/build/build.ninja
 # Usual phony targets.
 #
 
-.PHONY: clean check install
+.PHONY: clean clean-libs check install
 
 install: inkterm
 	mkdir -p $(DESTDIR)
@@ -74,6 +74,8 @@ clean:
 	rm -f $(PROG)
 	rm -f $(PROG:.o=.gcno) $(PROG:.o=.gcda)
 	rm -f inkterm test
+
+clean-libs:
 	rm -rf libxkbcommon/build
 	rm -rf libevdev/build
 	$(MAKE) -C FBInk clean
