@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdarg.h>
 
+#define ARRAYLEN(arr) (sizeof((arr))/sizeof(*(arr)))
+
 static inline void *
 xmalloc(size_t n)
 {

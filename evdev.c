@@ -21,9 +21,39 @@ static struct xkb_context *xkb_ctx = NULL;
 static struct xkb_keymap *xkb_keymap = NULL;
 static struct xkb_state *xkb_state = NULL;
 
-#define MOD_SHIFT (1 << 0)
-#define MOD_ALT   (1 << 1)
-#define MOD_CTRL  (1 << 2)
+/* Some keys require special handling. */
+static struct {
+	int key;
+	struct {
+		int sz;
+		const char *data;
+	} val;
+} string_binds[] = {
+	// Purely to avoid calling strlen at runtime, the val struct is used to
+	// give a size to a string. The KEYSTR macro fills val for us.
+	// sizeof(str) includes NUL; we don't when we write to the pty
+#define KEYSTR(str) { .sz = (sizeof((str))-1), .data = (str) }
+	// Kernel keycodes, not XKB! Though, this may change sooner or later.
+	{ KEY_UP,		KEYSTR("\033[A") },
+	{ KEY_DOWN,		KEYSTR("\033[B") },
+	{ KEY_RIGHT,		KEYSTR("\033[C") },
+	{ KEY_LEFT,		KEYSTR("\033[D") },
+
+	// Going by what xterm uses...
+	{ KEY_F1,		KEYSTR("\033[OP") },
+	{ KEY_F2,		KEYSTR("\033[OQ") },
+	{ KEY_F3,		KEYSTR("\033[OR") },
+	{ KEY_F4,		KEYSTR("\033[OS") },
+	{ KEY_F5,		KEYSTR("\033[15~") },
+	{ KEY_F6,		KEYSTR("\033[17~") },
+	{ KEY_F7,		KEYSTR("\033[18~") },
+	{ KEY_F8,		KEYSTR("\033[19~") },
+	{ KEY_F9,		KEYSTR("\033[20~") },
+	{ KEY_F10,		KEYSTR("\033[21~") },
+	{ KEY_F11,		KEYSTR("\033[23~") },
+	{ KEY_F12,		KEYSTR("\033[24~") },
+#undef KEYSTR
+};
 
 /* For some backstory on this file, because why not: a very large switch
  * statement used to be here because I didn't know of any other way immediately
@@ -45,26 +75,38 @@ handle_key(struct input_event ev)
 	       ev.value);
 
 	// evdev keycodes have a fixed offset of 8.
-	ev.code += 8;
+	int code = ev.code + 8;
 
 	// If this is a repeated key, we can consult xkb to figure out what to
 	// do with it.
 	// If the key is supposed to repeat then business as usual.
-	if (ev.value == 2 && !xkb_keymap_key_repeats(xkb_keymap, ev.code))
+	if (ev.value == 2 && !xkb_keymap_key_repeats(xkb_keymap, code))
 		return;
 
 	// Check to see if the key was released (0).
 	if (ev.value == 0) {
 		// Tell xkb about it and return.
-		xkb_state_update_key(xkb_state, ev.code, XKB_KEY_UP);
+		xkb_state_update_key(xkb_state, code, XKB_KEY_UP);
 		return;
 	} else if (ev.value == 1)
 		// Key was just pressed and is NOT a repeat.
-		xkb_state_update_key(xkb_state, ev.code, XKB_KEY_DOWN);
+		xkb_state_update_key(xkb_state, code, XKB_KEY_DOWN);
+
+	// Check to see if this is a key that requires special handling.
+	for (int i = 0; i < ARRAYLEN(string_binds); ++i) {
+		// Note that this is ev.code and not code.
+		if (string_binds[i].key == ev.code) {
+			// Yes it is. Write the string to the pty and return.
+			// TODO: Handle partial writes in the unlikely event it
+			// happens.
+			write(term.pty, string_binds[i].val.data, string_binds[i].val.sz);
+			return;
+		}
+	}
 
 	// Write the key to the pty.
 	char outbuf[5] = {0}; // 4 bytes + 1 for NUL
-	int n = xkb_state_key_get_utf8(xkb_state, ev.code, outbuf, sizeof(outbuf));
+	int n = xkb_state_key_get_utf8(xkb_state, code, outbuf, sizeof(outbuf));
 	if (n == 0)
 		return; // Nothing more to do.
 
