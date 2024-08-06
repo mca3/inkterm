@@ -1,8 +1,9 @@
 CC = cc
-CFLAGS = -O0 -std=c99 -pedantic -Wall -Werror -g -IFBInk `pkg-config --cflags libevdev xkbcommon`
-LDFLAGS = -L./FBInk/Release -lfbink `pkg-config --libs libevdev xkbcommon`
+CFLAGS = -O0 -std=c99 -pedantic -Wall -Werror -g -IFBInk -Ilibxkbcommon/include -Ilibevdev
+LDFLAGS = -LFBInk/Release -lfbink -Llibxkbcommon/build -lxkbcommon -Llibevdev/build -levdev -static
 
 OBJ = vt100.o evdev.o utf8.o
+LIBS = FBInk/Release/libfbink.a libevdev/build/libevdev.a libxkbcommon/build/libxkbcommon.a
 PROG = main.o test.o
 
 ifdef GCOV
@@ -14,14 +15,37 @@ endif
 
 all: inkterm
 
-inkterm: FBInk/Release/libfbink.so main.o $(OBJ)
+inkterm: main.o $(OBJ) $(LIBS)
 	$(CC) -o $@ $(CFLAGS) main.o $(OBJ) $(LDFLAGS) 
 
-test: test.o $(OBJ)
+test: test.o $(OBJ) $(LIBS)
 	$(CC) -o $@ $(CFLAGS) test.o $(OBJ) $(LDFLAGS) 
 
-FBInk/Release/libfbink.so:
-	$(MAKE) -C FBInk LINUX=1 MINIMAL=1 BITMAP=1 DRAW=1 FONTS=1 shared 
+#
+# Libraries
+#
+
+FBInk/Release/libfbink.a:
+	$(MAKE) -C FBInk LINUX=1 MINIMAL=1 BITMAP=1 DRAW=1 FONTS=1 static 
+
+libxkbcommon/build/build.ninja:
+	cd libxkbcommon && meson setup build \
+		--backend=ninja \
+		-Denable-x11=false -Denable-wayland=false \
+		-Ddefault_library=static
+
+libxkbcommon/build/libxkbcommon.a: libxkbcommon/build/build.ninja
+	cd libxkbcommon && meson compile -C build xkbcommon
+
+libevdev/build/build.ninja:
+	cd libevdev && meson setup build \
+		--backend=ninja \
+		-Dtests=disabled \
+		-Ddocumentation=disabled \
+		-Ddefault_library=static
+
+libevdev/build/libevdev.a: libevdev/build/build.ninja
+	cd libevdev && meson compile -C build evdev
 
 .PHONY: clean check
 
@@ -37,4 +61,6 @@ clean:
 	rm -f $(PROG)
 	rm -f $(PROG:.o=.gcno) $(PROG:.o=.gcda)
 	rm -f inkterm test
-	#$(MAKE) -C FBInk clean
+	rm -rf libxkbcommon/build
+	rm -rf libevdev/build
+	$(MAKE) -C FBInk clean

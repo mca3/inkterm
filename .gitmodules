@@ -1,3 +1,9 @@
 [submodule "FBInk"]
 	path = FBInk
 	url = https://github.com/NiLuJe/FBInk
+[submodule "libevdev"]
+	path = libevdev
+	url = https://gitlab.freedesktop.org/libevdev/libevdev
+[submodule "libxkbcommon"]
+	path = libxkbcommon
+	url = https://github.com/xkbcommon/libxkbcommon
