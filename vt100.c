@@ -137,7 +137,8 @@ control(rune c)
 {
 	switch (c) {
 	case '\a': // BEL; Bell
-		// TODO: Implement the bell
+		// Do something, if we are told to
+		if (term.on_bell) term.on_bell();
 		break;
 	case '\t': // TAB
 		// Add 8 chars and round down to nearest 8.

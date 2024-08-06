@@ -32,6 +32,10 @@ static int child_pid;
  * update latency. */
 static int draw_timeout = 10;
 
+/* Internal variable that refreshes the screen on the next call to draw.
+ * Most of the time, this is immediately after it is set. */
+static int refresh_next = 0;
+
 static void
 sigchld_handler(int _)
 {
@@ -134,6 +138,13 @@ draw_cell(int fb, int y, int x)
 	// fbink_grid_refresh(fb, 1, 1, &fbc);
 }
 
+static void
+bellhandler(void)
+{
+	// Set a flag for draw.
+	refresh_next = 1;
+}
+
 void
 draw(int fb)
 {
@@ -180,6 +191,23 @@ draw(int fb)
 	// Might be wasting some cycles since it could have gotten drawn above,
 	// but whatever.
 	draw_cell(fb, term.row, term.col);
+
+	// Handle refresh_next now.
+	// This takes *a lot* of time because e-ink is slow and from what I can
+	// see, fbink doesn't allow us to just say "hey refresh the screen and
+	// let us know when it's done".
+	// But then again, I'm tired, so there's a good chance that I am just
+	// not thinking of how to do that right now.
+	// Or alternatively, the way to do it is just not immediately obvious
+	// to me.
+	if (refresh_next) {
+		refresh_next = 0;
+
+		fbc.is_flashing = 1;
+		fbink_refresh(fb, 0, 0, 0, 0, &fbc);
+		fbink_wait_for_complete(fb, 0); // This is slow!
+		fbc.is_flashing = 0;
+	}
 }
 
 int
@@ -203,6 +231,10 @@ init_vt100(int rows, int cols, char *args[])
 		signal(SIGCHLD, sigchld_handler);
 		break;
 	}
+
+	// Set the on_bell handler so we can flash the screen every now and
+	// then.
+	term.on_bell = bellhandler;
 
 	return 0;
 

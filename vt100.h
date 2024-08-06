@@ -39,6 +39,8 @@ struct term {
 	char esc_buf[ESC_BUFSZ];
 	int esc;
 	int esc_state;
+
+	void (*on_bell)(void);
 };
 
 extern struct term term;
