@@ -282,7 +282,18 @@ main(int argc, char *argv[])
 	// with no data, only then do we draw.
 	int rc;
 	int writing = 0;
-	while ((rc = poll(pfds, sizeof(pfds)/sizeof(*pfds), writing ? draw_timeout : -1)) != -1) {
+	for (;;) {
+		rc = poll(pfds, sizeof(pfds)/sizeof(*pfds), writing ? draw_timeout : -1);
+		if (rc == -1) {
+			// EINTR is not a fatal error, and simply means that
+			// the call to poll was interrupted.
+			if (errno == EINTR)
+				continue;
+			
+			// Everything else is fatal.
+			break;
+		}
+
 		// Check to see if this was a timeout after data was being
 		// written to the terminal.
 		if (rc == 0 && writing) {
@@ -309,8 +320,9 @@ main(int argc, char *argv[])
 		}
 	}
 
-	die("poll: %s\n", strerror(errno));
+	perror("poll");
 
+	// Cleanup.
 	fbink_close(fb);
 	evdev_free();
 	vt100_free();
