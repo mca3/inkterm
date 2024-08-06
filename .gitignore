@@ -1,6 +1,7 @@
 *.gcda
 *.gcno
 *.o
+/_install
 /coverage*
 /fuzz
 /inkterm

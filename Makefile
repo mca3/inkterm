@@ -1,6 +1,7 @@
 CC = cc
 CFLAGS = -O0 -std=c99 -pedantic -Wall -Werror -g -IFBInk -Ilibxkbcommon/include -Ilibevdev
 LDFLAGS = -LFBInk/Release -lfbink -Llibxkbcommon/build -lxkbcommon -Llibevdev/build -levdev -static
+DESTDIR = _install
 
 OBJ = vt100.o evdev.o utf8.o
 LIBS = FBInk/Release/libfbink.a libevdev/build/libevdev.a libxkbcommon/build/libxkbcommon.a
@@ -47,7 +48,19 @@ libevdev/build/build.ninja:
 libevdev/build/libevdev.a: libevdev/build/build.ninja
 	cd libevdev && meson compile -C build evdev
 
-.PHONY: clean check
+#
+# Usual phony targets.
+#
+
+.PHONY: clean check install
+
+install: inkterm
+	mkdir -p $(DESTDIR)
+	install -m755 inkterm $(DESTDIR)
+	install -m644 LICENSE $(DESTDIR)/LICENSE.inkterm
+	install -m644 libevdev/COPYING $(DESTDIR)/LICENSE.libevdev
+	install -m644 libxkbcommon/LICENSE $(DESTDIR)/LICENSE.libxkbcommon
+	install -m644 FBInk/LICENSE $(DESTDIR)/LICENSE.fbink
 
 check: test
 	@for i in testdata/*.in; do \
