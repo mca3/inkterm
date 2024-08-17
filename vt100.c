@@ -14,15 +14,17 @@
  */
 
 #define _POSIX_C_SOURCE 200112L
+#define _XOPEN_SOURCE
 
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdlib.h>
+#include <wchar.h>
 
 #ifdef __linux__
 #include <pty.h>
@@ -429,9 +431,18 @@ vt100_putr(rune c)
 	term.cells[(term.cols*term.row)+term.col].attr = term.attr;
 	damage(term.row, term.col);
 
+	// Wide characters have a dummy cell placed ahead of it.
+	if (wcwidth(c) == 2 && term.col+1 <= term.cols-1) {
+		term.cells[(term.cols*term.row)+term.col+1].c = 0;
+		term.cells[(term.cols*term.row)+term.col+1].attr = ATTR_WIDEDUMMY;
+		damage(term.row, term.col+1);
+	}
+
 	// Move forward a column if it doesn't go off screen.
 	// If it does, don't move forward and wrap on the next character.
-	if (term.col < term.cols-1)
+	if (wcwidth(c) == 2 && term.col+1 < term.cols-1)
+		vt100_moverel(2, 0); // Wide chars move ahead two spots
+	else if (term.col < term.cols-1)
 		vt100_moverel(1, 0);
 	else
 		term.state |= STATE_WRAPNEXT;

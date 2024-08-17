@@ -132,8 +132,9 @@ draw_cell(int fb, int y, int x)
 	fbc.is_inverted = !!(term.cells[(y*term.cols)+x].attr & ATTR_REVERSE);
 	fbc.is_inverted ^= (x == term.col && y == term.row);
 
-	if (term.cells[(y*term.cols)+x].c) {
-		unsigned char *c = utf8_encode(term.cells[(y*term.cols)+x].c, NULL);
+	struct cell cell = term.cells[(y*term.cols)+x];
+	if (cell.c && cell.attr != ATTR_WIDEDUMMY) {
+		unsigned char *c = utf8_encode(cell.c, NULL);
 		fbink_print(fb, (char *)c, &fbc);
 	} else fbink_print(fb, " ", &fbc);
 	// fbink_grid_refresh(fb, 1, 1, &fbc);

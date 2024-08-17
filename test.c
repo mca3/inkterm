@@ -18,7 +18,8 @@ draw(void)
 	for (int y = 0; y < term.rows; ++y) {
 		for (int x = 0; x < term.cols; ++x) {
 			unsigned char *c = utf8_encode(term.cells[(y*term.cols)+x].c, NULL);
-			if (term.cells[(y*term.cols)+x].c) write(STDOUT_FILENO, c, strlen((char*)c)); // valid!
+			if (term.cells[(y*term.cols)+x].attr == ATTR_WIDEDUMMY) continue;
+			else if (term.cells[(y*term.cols)+x].c) write(STDOUT_FILENO, c, strlen((char*)c)); // valid!
 			else write(STDOUT_FILENO, " ", 1);
 		}
 		write(STDOUT_FILENO, "\n", 1);

@@ -9,6 +9,7 @@
 //#define ATTR_BLINK		(1 << 3)
 #define ATTR_REVERSE		(1 << 4)
 //#define ATTR_INVIS		(1 << 5)
+#define ATTR_WIDEDUMMY		(1 << 6)
 
 /** Used to control if the terminal will wrap to another line on the next
  * character. */
