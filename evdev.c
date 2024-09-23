@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -6,6 +7,7 @@
 
 #include <linux/input.h>
 #include <sys/file.h>
+#include <sys/types.h>
 
 #include <libevdev/libevdev.h>
 #include <xkbcommon/xkbcommon.h>
@@ -66,6 +68,60 @@ static struct {
  * configure.
  */
 
+/* Opens the event device at evpath to determine if it is a keyboard or not.
+ * If an error occurs, errno is set. */
+static int
+is_keyboard(char *evpath)
+{
+	struct libevdev *evdev = NULL;
+	int is_kbd = -1;
+	int rc;
+	int fd = open(evpath, O_RDONLY|O_NONBLOCK);
+	if (fd == -1)
+		return -1;
+
+	// Try to init libevdev.
+	// In theory this can only fail if fd does not point to an event device.
+	if ((rc = libevdev_new_from_fd(fd, &evdev)) < 0) {
+		errno = -rc;
+		goto fail;
+	}
+
+	// Keyboards should have both EV_KEY and EV_REP.
+	is_kbd = libevdev_has_event_type(evdev, EV_KEY) &&
+		 libevdev_has_event_type(evdev, EV_REP);
+
+fail:
+	if (fd)
+		close(fd);
+	if (evdev)
+		libevdev_free(evdev);
+	return is_kbd;
+}
+
+/* Finds the first keyboard input device. */
+static char *
+find_keyboard(void)
+{
+	static char buf[512] = {0}; // Far more than enough
+	DIR *dir;
+	struct dirent *dirent;
+
+	dir = opendir("/dev/input");
+	if (dir == NULL)
+		return NULL;
+
+	while ((dirent = readdir(dir)) != NULL) {
+		snprintf(buf, sizeof(buf), "/dev/input/%s", dirent->d_name);
+		if (is_keyboard(buf) == 1)
+			goto done;
+	}
+
+done:
+	closedir(dir);
+	return buf;
+}
+
 static void
 handle_key(struct input_event ev)
 {
@@ -117,8 +173,17 @@ handle_key(struct input_event ev)
 int
 evdev_init(char *eventfile)
 {
-	// This argument must be specified.
-	assert(eventfile);
+	// If eventfile wasn't specified, look for the first keyboard.
+	if (eventfile == NULL)
+		eventfile = find_keyboard();
+
+	// Not specified and not found
+	if (eventfile == NULL) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	fprintf(stderr, "using %s for events\n", eventfile);
 
 	// Make sure we don't accidentially initialize ourselves again.
 	if (evdev_ctx)

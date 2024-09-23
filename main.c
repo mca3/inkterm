@@ -285,8 +285,8 @@ main(int argc, char *argv[])
 		args[0] = shell;
 	}
 
-	// TODO: Fancy automatic detection of keyboards goes here
-	char *event_file = "/dev/input/event2";
+	// Specified or automatically detected
+	char *event_file = NULL;
 
 	int opt;
 	while ((opt = getopt(argc, argv, "e:")) != -1) {
