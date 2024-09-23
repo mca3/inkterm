@@ -148,7 +148,7 @@ control(rune c)
 		vt100_move(term.row, (term.col + 8) & ~0x7);
 		break;
 	case '\b': // BS; Backspace
-		vt100_moverel(-1, 0);
+		vt100_move(term.row, term.col-1);
 		break;
 	case '\r': // CR; Carriage return
 		vt100_move(term.row, 0);
@@ -234,22 +234,22 @@ csi(void)
 	case 'A': // CUU; Cursor Up
 		// Implicit 1 if no args given
 		if (!narg) args[0] = 1;
-		if (term.row > 0) vt100_moverel(0, -args[0]);
+		if (term.row > 0) vt100_move(term.row-args[0], term.col);
 		break;
 	case 'B': // CUU; Cursor Down
 		// Implicit 1 if no args given
 		if (!narg) args[0] = 1;
-		if (term.row < term.rows-1) vt100_moverel(0, args[0]);
+		if (term.row < term.rows-1) vt100_move(term.row+args[0], term.col);
 		break;
 	case 'C': // CUU; Cursor Forward
 		// Implicit 1 if no args given
 		if (!narg) args[0] = 1;
-		if (term.col < term.cols-1) vt100_moverel(args[0], 0);
+		if (term.col < term.cols-1) vt100_move(term.row, term.col+args[0]);
 		break;
 	case 'D': // CUU; Cursor Back
 		// Implicit 1 if no args given
 		if (!narg) args[0] = 1;
-		if (term.col > 0) vt100_moverel(-args[0], 0);
+		if (term.col > 0) vt100_move(term.row, term.col-args[0]);
 		break;
 	case 'H': // CUP; Set cursor pos
 	case 'f': // CUP; Set cursor pos
@@ -422,7 +422,7 @@ vt100_putr(rune c)
 		assert(term.col == term.cols-1);
 
 		// Note: WRAPNEXT will be unset if needed by the call to
-		// vt100_moverel.
+		// vt100_move.
 		newline(1);
 	}
 
@@ -441,9 +441,9 @@ vt100_putr(rune c)
 	// Move forward a column if it doesn't go off screen.
 	// If it does, don't move forward and wrap on the next character.
 	if (wcwidth(c) == 2 && term.col+1 < term.cols-1)
-		vt100_moverel(2, 0); // Wide chars move ahead two spots
+		vt100_move(term.row, term.col+2); // Wide chars move ahead two spots
 	else if (term.col < term.cols-1)
-		vt100_moverel(1, 0);
+		vt100_move(term.row, term.col+1);
 	else
 		term.state |= STATE_WRAPNEXT;
 }
@@ -486,14 +486,6 @@ vt100_move(int y, int x)
 	// If STATE_WRAPNEXT is set, then the next character that is put on the
 	// screen will wrap around; often this is not what we want.
 	term.state &= ~STATE_WRAPNEXT;
-}
-
-void
-vt100_moverel(int x, int y)
-{
-	// This function exists so I don't have to rewrite code.
-	// TODO: Rewrite code, remove this function.
-	vt100_move(term.row+y, term.col+x);
 }
 
 void
