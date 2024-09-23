@@ -73,7 +73,7 @@ void vt100_putr(rune c);
 size_t vt100_write(unsigned char *buf, size_t n);
 
 /** Move the cursor in an absolute fashion. */
-void vt100_move(int x, int y);
+void vt100_move(int y, int x);
 
 /** Move the cursor in a relative fashion. */
 void vt100_moverel(int x, int y);

@@ -101,7 +101,7 @@ newline(int firstcol)
 	if (term.row < term.margin_bottom) {
 		// There's still space on the screen, just move down one.
 		// Move to the first column if requested.
-		vt100_move(firstcol ? 0 : term.col, term.row+1);
+		vt100_move(term.row+1, firstcol ? 0 : term.col);
 
 		return;
 	}
@@ -130,7 +130,7 @@ newline(int firstcol)
 		damageline(row);
 
 	// Move to the first column if requested.
-	vt100_move(firstcol ? 0 : term.col, term.row);
+	vt100_move(term.row, firstcol ? 0 : term.col);
 }
 
 /* Handles control characters. */
@@ -145,13 +145,13 @@ control(rune c)
 	case '\t': // TAB
 		// Add 8 chars and round down to nearest 8.
 		// WRAPNEXT is automatically unset.
-		vt100_move((term.col + 8) & ~0x7, term.row);
+		vt100_move(term.row, (term.col + 8) & ~0x7);
 		break;
 	case '\b': // BS; Backspace
 		vt100_moverel(-1, 0);
 		break;
 	case '\r': // CR; Carriage return
-		vt100_move(0, term.row);
+		vt100_move(term.row, 0);
 		break;
 	case '\f': // FF; Form feed
 		// This is ^L which I use quite often.	
@@ -176,7 +176,7 @@ esc(rune c)
 		term.oldcol = term.col;
 		break;
 	case '8': // DECRC; DEC Restore Cursor
-		vt100_move(term.oldcol, term.oldrow);
+		vt100_move(term.oldrow, term.oldcol);
 		break;
 	default: /* do nothing */ break;
 	}
@@ -254,7 +254,7 @@ csi(void)
 	case 'H': // CUP; Set cursor pos
 	case 'f': // CUP; Set cursor pos
 		if (!narg) args[0] = args[1] = 1; // Doubles as home
-		vt100_move(args[1]-1, args[0]-1);
+		vt100_move(args[0]-1, args[1]-1);
 		break;
 	case 'J': // Clear screen
 		vt100_clear(args[0]);
@@ -336,7 +336,7 @@ vt100_init(int rows, int cols, int *slave)
 	// This isn't fatal.
 	struct winsize w = {0};
 	w.ws_row = rows;
-	w.ws_col = cols; // TODO: I broke something here!
+	w.ws_col = cols;
 	if (ioctl(term.pty, TIOCSWINSZ, &w) < 0)
 		fprintf(stderr, "TIOCSWINSZ failed: %s\n", strerror(errno));
 
@@ -471,7 +471,7 @@ vt100_write(unsigned char *buf, size_t n)
 }
 
 void
-vt100_move(int x, int y)
+vt100_move(int y, int x)
 {
 	term.row = y;
 	term.col = x;
@@ -493,7 +493,7 @@ vt100_moverel(int x, int y)
 {
 	// This function exists so I don't have to rewrite code.
 	// TODO: Rewrite code, remove this function.
-	vt100_move(term.col+x, term.row+y);
+	vt100_move(term.row+y, term.col+x);
 }
 
 void
