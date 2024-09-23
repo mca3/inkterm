@@ -1,5 +1,5 @@
-#ifndef VT100_H
-#define VT100_H
+#ifndef TERM_H
+#define TERM_H
 
 #define ESC_BUFSZ 64
 
@@ -49,7 +49,7 @@ extern struct term term;
 /** Initializes the terminal with the number of rows and cols.
  * All data is overwritten in the passed struct.
  *
- * vt100_init does not concern itself with who is on the other side of the PTY
+ * term_init does not concern itself with who is on the other side of the PTY
  * and how it is set up.
  *
  * slave must be non NULL or an assertion is raised.
@@ -57,23 +57,23 @@ extern struct term term;
  *
  * If memory was unable to be allocated, -1 is returned and errno is set.
  */
-int vt100_init(int rows, int cols, int *slave);
+int term_init(int rows, int cols, int *slave);
 
 /** Frees all related data with the term struct. */
-void vt100_free(void);
+void term_free(void);
 
 /** Writes the specified character to the terminal. */
-void vt100_putr(rune c);
+void term_putr(rune c);
 
 /** Write data to the terminal.
  * The return value is how many bytes that were read from the input.
  *
  * buf must not be null unless n is 0.
  */
-size_t vt100_write(unsigned char *buf, size_t n);
+size_t term_write(unsigned char *buf, size_t n);
 
 /** Move the cursor in an absolute fashion. */
-void vt100_move(int y, int x);
+void term_move(int y, int x);
 
 /** Clear the screen.
  * 
@@ -82,7 +82,7 @@ void vt100_move(int y, int x);
  * 2 clears the entire screen.
  * Anything else does nothing.
  */
-void vt100_clear(int dir);
+void term_clear(int dir);
 
 /** Clear a line on the screen.
  * 
@@ -91,6 +91,6 @@ void vt100_clear(int dir);
  * 2 clears the entire line.
  * Anything else does nothing.
  */
-void vt100_clearline(int dir);
+void term_clearline(int dir);
 
-#endif /* ifndef VT100_H */
+#endif /* ifndef TERM_H */

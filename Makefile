@@ -3,7 +3,7 @@ CFLAGS = -O0 -std=c99 -pedantic -Wall -Werror -g -IFBInk -Ilibxkbcommon/include 
 LDFLAGS = -LFBInk/Release -lfbink -Llibxkbcommon/build -lxkbcommon -Llibevdev/build -levdev -static
 DESTDIR = _install
 
-OBJ = vt100.o evdev.o utf8.o
+OBJ = term.o evdev.o utf8.o
 LIBS = FBInk/Release/libfbink.a libevdev/build/libevdev.a libxkbcommon/build/libxkbcommon.a
 PROG = main.o test.o
 

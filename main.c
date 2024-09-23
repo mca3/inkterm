@@ -18,8 +18,8 @@
 #include <libevdev/libevdev.h>
 #include <linux/input.h>
 
-#include "vt100.h"
 #include "evdev.h"
+#include "term.h"
 #include "x.h"
 
 static FBInkConfig fbc = {
@@ -213,11 +213,11 @@ draw(int fb)
 }
 
 int
-init_vt100(int rows, int cols, char *args[])
+init_term(int rows, int cols, char *args[])
 {
 	int slave;
-	if (vt100_init(rows, cols, &slave) == -1)
-		die("failed to init vt100: %s\n", strerror(errno));
+	if (term_init(rows, cols, &slave) == -1)
+		die("failed to init terminal: %s\n", strerror(errno));
 
 	// Fork and start the process.
 	switch ((child_pid = fork())) {
@@ -248,7 +248,7 @@ fail:
 		close(slave);
 	}
 
-	vt100_free();
+	term_free();
 	return -1;
 }
 
@@ -269,7 +269,7 @@ readterm(void)
 	// There is potential for it to be an incomplete write, because again,
 	// UTF-8.
 	len += n;
-	written = vt100_write(buf, len);
+	written = term_write(buf, len);
 	len -= written;
 
 	// Move back if needed.
@@ -309,7 +309,7 @@ main(int argc, char *argv[])
 	fbink_cls(fb, &fbc, NULL, 0);
 	fbink_get_state(&fbc, &s);
 
-	if (init_vt100(s.max_rows, s.max_cols, args) != 0)
+	if (init_term(s.max_rows, s.max_cols, args) != 0)
 		die("failed to init vt: %s\n", strerror(errno));
 
 	if (evdev_init(event_file) == -1)
@@ -370,5 +370,5 @@ main(int argc, char *argv[])
 	// Cleanup.
 	fbink_close(fb);
 	evdev_free();
-	vt100_free();
+	term_free();
 }

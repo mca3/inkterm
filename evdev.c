@@ -12,9 +12,9 @@
 #include <libevdev/libevdev.h>
 #include <xkbcommon/xkbcommon.h>
 
-#include "vt100.h"
-#include "x.h"
 #include "evdev.h"
+#include "term.h"
+#include "x.h"
 
 int evdev_fd = -1;
 

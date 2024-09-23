@@ -8,7 +8,7 @@
 #include <poll.h>
 #include <ctype.h>
 
-#include "vt100.h"
+#include "term.h"
 #include "x.h"
 
 void
@@ -35,7 +35,7 @@ main(int argc, char *argv[])
 	}
 
 	int slave;
-	assert(vt100_init(10, 20, &slave) != -1);
+	assert(term_init(10, 20, &slave) != -1);
 	// close(slave); // We don't actually need it
 
 	// Shuffle data between stdin and the PTY
@@ -43,7 +43,7 @@ main(int argc, char *argv[])
 	int n, o = 0;
 	static unsigned char buf[512] = {0};
 	while ((n = read(STDIN_FILENO, buf+o, sizeof(buf)-o)) > 0) {
-		o = vt100_write(buf, n+o);
+		o = term_write(buf, n+o);
 
 		/*
 		// Make sure write succeeds
@@ -59,5 +59,5 @@ main(int argc, char *argv[])
 	// Intentionally wait to draw until here
 	draw();
 
-	vt100_free();
+	term_free();
 }

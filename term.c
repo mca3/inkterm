@@ -2,15 +2,9 @@
  * Great terminal, not so great to read but still extremely helpful in guiding
  * how I wrote a lot of the code in here.
  *
- * Of course, this isn't a direct port of st to the framebuffer and there's a
- * lot that we don't support because I don't really want to go past the VT100
- * in terms of terminal emulation.
- * The VT100 is black and white only and most applications support it, so for
- * eInk which is also black and white only (mostly) it feels like a good thing
- * to target.
- *
- * I would assume we will eventually grow past the VT100 in some ways, but I
- * don't know if I would have it in me to do that.
+ * Originally I wasn't going to go past the VT100, but I've come to realize
+ * that the VT100 doesn't exactly have everything that many terminal
+ * applications use today.
  */
 
 #define _POSIX_C_SOURCE 200112L
@@ -32,8 +26,8 @@
 #include <util.h>
 #endif
 
+#include "term.h"
 #include "utf8.h"
-#include "vt100.h"
 #include "x.h"
 
 struct term term = {0};
@@ -101,7 +95,7 @@ newline(int firstcol)
 	if (term.row < term.margin_bottom) {
 		// There's still space on the screen, just move down one.
 		// Move to the first column if requested.
-		vt100_move(term.row+1, firstcol ? 0 : term.col);
+		term_move(term.row+1, firstcol ? 0 : term.col);
 
 		return;
 	}
@@ -130,7 +124,7 @@ newline(int firstcol)
 		damageline(row);
 
 	// Move to the first column if requested.
-	vt100_move(term.row, firstcol ? 0 : term.col);
+	term_move(term.row, firstcol ? 0 : term.col);
 }
 
 /* Handles control characters. */
@@ -145,18 +139,18 @@ control(rune c)
 	case '\t': // TAB
 		// Add 8 chars and round down to nearest 8.
 		// WRAPNEXT is automatically unset.
-		vt100_move(term.row, (term.col + 8) & ~0x7);
+		term_move(term.row, (term.col + 8) & ~0x7);
 		break;
 	case '\b': // BS; Backspace
-		vt100_move(term.row, term.col-1);
+		term_move(term.row, term.col-1);
 		break;
 	case '\r': // CR; Carriage return
-		vt100_move(term.row, 0);
+		term_move(term.row, 0);
 		break;
 	case '\f': // FF; Form feed
 		// This is ^L which I use quite often.	
-		vt100_clear(2);
-		vt100_move(0, 0);
+		term_clear(2);
+		term_move(0, 0);
 		break;
 	case '\v': // VT; Vertical tabulation
 		// ???
@@ -176,7 +170,7 @@ esc(rune c)
 		term.oldcol = term.col;
 		break;
 	case '8': // DECRC; DEC Restore Cursor
-		vt100_move(term.oldrow, term.oldcol);
+		term_move(term.oldrow, term.oldcol);
 		break;
 	default: /* do nothing */ break;
 	}
@@ -234,33 +228,33 @@ csi(void)
 	case 'A': // CUU; Cursor Up
 		// Implicit 1 if no args given
 		if (!narg) args[0] = 1;
-		if (term.row > 0) vt100_move(term.row-args[0], term.col);
+		if (term.row > 0) term_move(term.row-args[0], term.col);
 		break;
 	case 'B': // CUU; Cursor Down
 		// Implicit 1 if no args given
 		if (!narg) args[0] = 1;
-		if (term.row < term.rows-1) vt100_move(term.row+args[0], term.col);
+		if (term.row < term.rows-1) term_move(term.row+args[0], term.col);
 		break;
 	case 'C': // CUU; Cursor Forward
 		// Implicit 1 if no args given
 		if (!narg) args[0] = 1;
-		if (term.col < term.cols-1) vt100_move(term.row, term.col+args[0]);
+		if (term.col < term.cols-1) term_move(term.row, term.col+args[0]);
 		break;
 	case 'D': // CUU; Cursor Back
 		// Implicit 1 if no args given
 		if (!narg) args[0] = 1;
-		if (term.col > 0) vt100_move(term.row, term.col-args[0]);
+		if (term.col > 0) term_move(term.row, term.col-args[0]);
 		break;
 	case 'H': // CUP; Set cursor pos
 	case 'f': // CUP; Set cursor pos
 		if (!narg) args[0] = args[1] = 1; // Doubles as home
-		vt100_move(args[0]-1, args[1]-1);
+		term_move(args[0]-1, args[1]-1);
 		break;
 	case 'J': // Clear screen
-		vt100_clear(args[0]);
+		term_clear(args[0]);
 		break;
 	case 'K': // Clear line
-		vt100_clearline(args[0]);
+		term_clearline(args[0]);
 		break;
 	case 'm': // SGR; Set character attribute
 		if (!narg) narg=1,args[0]=0;
@@ -286,7 +280,7 @@ csi(void)
 		else if (args[1] <= 0 || args[1] > term.rows) break;
 		term.margin_top = args[0]-1;
 		term.margin_bottom = args[1]-1;
-		vt100_move(0,0);
+		term_move(0,0);
 		break;
 	default:
 		fprintf(stderr, "unknown CSI code %s (type = %c/0x%02x)\n", term.esc_buf, *buf, *buf);
@@ -297,7 +291,7 @@ csi(void)
 }
 
 int
-vt100_init(int rows, int cols, int *slave)
+term_init(int rows, int cols, int *slave)
 {
 	int old_errno;
 
@@ -360,7 +354,7 @@ fail:
 }
 
 void
-vt100_free(void)
+term_free(void)
 {
 	if (term.pty)
 		// Is this a good idea?
@@ -378,7 +372,7 @@ vt100_free(void)
 }
 
 void
-vt100_putr(rune c)
+term_putr(rune c)
 {
 	// Check for control characters.
 	if (c <= 0x1F) {
@@ -422,7 +416,7 @@ vt100_putr(rune c)
 		assert(term.col == term.cols-1);
 
 		// Note: WRAPNEXT will be unset if needed by the call to
-		// vt100_move.
+		// term_move.
 		newline(1);
 	}
 
@@ -441,15 +435,15 @@ vt100_putr(rune c)
 	// Move forward a column if it doesn't go off screen.
 	// If it does, don't move forward and wrap on the next character.
 	if (wcwidth(c) == 2 && term.col+1 < term.cols-1)
-		vt100_move(term.row, term.col+2); // Wide chars move ahead two spots
+		term_move(term.row, term.col+2); // Wide chars move ahead two spots
 	else if (term.col < term.cols-1)
-		vt100_move(term.row, term.col+1);
+		term_move(term.row, term.col+1);
 	else
 		term.state |= STATE_WRAPNEXT;
 }
 
 size_t
-vt100_write(unsigned char *buf, size_t n)
+term_write(unsigned char *buf, size_t n)
 {
 	if (n == 0)
 		// No-op
@@ -464,14 +458,14 @@ vt100_write(unsigned char *buf, size_t n)
 		rune r = 0;
 		if ((j = utf8_decode(buf+i, n-i, &r)) == 0)
 			return i;
-		vt100_putr(r);
+		term_putr(r);
 	}
 
 	return n;
 }
 
 void
-vt100_move(int y, int x)
+term_move(int y, int x)
 {
 	term.row = y;
 	term.col = x;
@@ -489,7 +483,7 @@ vt100_move(int y, int x)
 }
 
 void
-vt100_clear(int dir)
+term_clear(int dir)
 {
 	damagescr();
 
@@ -507,7 +501,7 @@ vt100_clear(int dir)
 }
 
 void
-vt100_clearline(int dir)
+term_clearline(int dir)
 {
 	struct cell *row = &term.cells[(term.row*term.cols)];
 

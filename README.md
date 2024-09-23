@@ -1,6 +1,6 @@
 # inkterm
 
-inkterm is a VT100 emulator for Kobo devices.
+inkterm is a terminal emulator for Kobo devices.
 (Though I have only tested it on the Libra 2.)
 
 The terminal emulator itself is in a somewhat working state with a couple of known issues, and input is "supported" but there is no on-screen keyboard so you'll have to bring your own `/dev/input/eventN` device.
