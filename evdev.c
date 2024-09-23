@@ -90,6 +90,16 @@ is_keyboard(char *evpath)
 	// Keyboards should have both EV_KEY and EV_REP.
 	is_kbd = libevdev_has_event_type(evdev, EV_KEY) &&
 		 libevdev_has_event_type(evdev, EV_REP);
+	if (!is_kbd)
+		goto fail;
+
+	// Additionally, keyboards should have keys.
+	// FBInk seems like it tests for codes 1-32, so let's do the same
+	// thing. (See input-event-codes.h in Linux headers.)
+	for (int i = 1; i <= 32; ++i) {
+		if ((is_kbd = !!libevdev_has_event_code(evdev, EV_KEY, i)) == 0)
+			goto fail;
+	}
 
 fail:
 	if (fd)
