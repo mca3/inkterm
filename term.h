@@ -44,8 +44,6 @@ struct term {
 	void (*on_bell)(void);
 };
 
-extern struct term term;
-
 /** Initializes the terminal with the number of rows and cols.
  * All data is overwritten in the passed struct.
  *
@@ -57,23 +55,23 @@ extern struct term term;
  *
  * If memory was unable to be allocated, -1 is returned and errno is set.
  */
-int term_init(int rows, int cols, int *slave);
+int term_init(struct term *term, int rows, int cols, int *slave);
 
 /** Frees all related data with the term struct. */
-void term_free(void);
+void term_free(struct term *term);
 
 /** Writes the specified character to the terminal. */
-void term_putr(rune c);
+void term_putr(struct term *term, rune c);
 
 /** Write data to the terminal.
  * The return value is how many bytes that were read from the input.
  *
  * buf must not be null unless n is 0.
  */
-size_t term_write(unsigned char *buf, size_t n);
+size_t term_write(struct term *term, unsigned char *buf, size_t n);
 
 /** Move the cursor in an absolute fashion. */
-void term_move(int y, int x);
+void term_move(struct term *term, int y, int x);
 
 /** Clear the screen.
  * 
@@ -82,7 +80,7 @@ void term_move(int y, int x);
  * 2 clears the entire screen.
  * Anything else does nothing.
  */
-void term_clear(int dir);
+void term_clear(struct term *term, int dir);
 
 /** Clear a line on the screen.
  * 
@@ -91,6 +89,6 @@ void term_clear(int dir);
  * 2 clears the entire line.
  * Anything else does nothing.
  */
-void term_clearline(int dir);
+void term_clearline(struct term *term, int dir);
 
 #endif /* ifndef TERM_H */

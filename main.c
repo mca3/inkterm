@@ -37,6 +37,8 @@ static int draw_timeout = 10;
  * Most of the time, this is immediately after it is set. */
 static int refresh_next = 0;
 
+struct term term = {0};
+
 static void
 sigchld_handler(int _)
 {
@@ -216,7 +218,7 @@ int
 init_term(int rows, int cols, char *args[])
 {
 	int slave;
-	if (term_init(rows, cols, &slave) == -1)
+	if (term_init(&term, rows, cols, &slave) == -1)
 		die("failed to init terminal: %s\n", strerror(errno));
 
 	// Fork and start the process.
@@ -248,7 +250,7 @@ fail:
 		close(slave);
 	}
 
-	term_free();
+	term_free(&term);
 	return -1;
 }
 
@@ -269,7 +271,7 @@ readterm(void)
 	// There is potential for it to be an incomplete write, because again,
 	// UTF-8.
 	len += n;
-	written = term_write(buf, len);
+	written = term_write(&term, buf, len);
 	len -= written;
 
 	// Move back if needed.
@@ -374,5 +376,5 @@ main(int argc, char *argv[])
 	// Cleanup.
 	fbink_close(fb);
 	evdev_free();
-	term_free();
+	term_free(&term);
 }

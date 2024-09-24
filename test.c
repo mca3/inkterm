@@ -11,6 +11,8 @@
 #include "term.h"
 #include "x.h"
 
+struct term term = {0};
+
 void
 draw(void)
 {
@@ -35,7 +37,7 @@ main(int argc, char *argv[])
 	}
 
 	int slave;
-	assert(term_init(10, 20, &slave) != -1);
+	assert(term_init(&term, 10, 20, &slave) != -1);
 	// close(slave); // We don't actually need it
 
 	// Shuffle data between stdin and the PTY
@@ -43,7 +45,7 @@ main(int argc, char *argv[])
 	int n, o = 0;
 	static unsigned char buf[512] = {0};
 	while ((n = read(STDIN_FILENO, buf+o, sizeof(buf)-o)) > 0) {
-		o = term_write(buf, n+o);
+		o = term_write(&term, buf, n+o);
 
 		/*
 		// Make sure write succeeds
@@ -59,5 +61,5 @@ main(int argc, char *argv[])
 	// Intentionally wait to draw until here
 	draw();
 
-	term_free();
+	term_free(&term);
 }

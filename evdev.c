@@ -13,6 +13,7 @@
 #include <xkbcommon/xkbcommon.h>
 
 #include "evdev.h"
+#include "main.h"
 #include "term.h"
 #include "x.h"
 
