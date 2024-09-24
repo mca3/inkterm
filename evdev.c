@@ -298,7 +298,7 @@ evdev_free(void)
 	}
 }
 
-void
+int
 evdev_handle(void)
 {
 	int rc;
@@ -312,4 +312,8 @@ evdev_handle(void)
 		if (rc == 0 && ev.type == EV_KEY)
 			handle_key(ev);
 	} while (rc == 1);
+
+	if (rc < 0)
+		errno = -rc;
+	return rc < 0 ? -1 : 0;
 }

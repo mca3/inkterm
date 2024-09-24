@@ -352,7 +352,10 @@ main(int argc, char *argv[])
 
 		if (pfds[1].revents & POLLIN) {
 			// Key press, probably
-			evdev_handle();
+			if (evdev_handle() == -1) {
+				perror("evdev_handle");
+				break;
+			}
 		}
 
 		if (pfds[0].revents & POLLIN) {
@@ -365,7 +368,8 @@ main(int argc, char *argv[])
 		}
 	}
 
-	perror("poll");
+	if (rc == -1)
+		perror("poll");
 
 	// Cleanup.
 	fbink_close(fb);

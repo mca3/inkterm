@@ -16,7 +16,9 @@ int evdev_init(char *eventfile);
 /** Frees evdev and xkbcommon stuff. */
 void evdev_free(void);
 
-/** Handles evdev events as they come in and writes keys to the terminal pty. */
-void evdev_handle(void);
+/** Handles evdev events as they come in and writes keys to the terminal pty.
+ *
+ * Returns -1 on error and sets errno. */
+int evdev_handle(void);
 
 #endif /* EVDEV_H */
