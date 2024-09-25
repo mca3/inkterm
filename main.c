@@ -233,10 +233,12 @@ fail:
 static void
 handle_key(struct evdev_kbd *_, struct input_event ev)
 {
+#if 0
 	printf("Event: %s %s %d\n",
 	       libevdev_event_type_get_name(ev.type),
 	       libevdev_event_code_get_name(ev.type, ev.code),
 	       ev.value);
+#endif
 
 	// evdev keycodes have a fixed offset of 8.
 	int code = ev.code + 8;
