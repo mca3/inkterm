@@ -1,22 +1,16 @@
-#include <ctype.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <getopt.h>
 #include <poll.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 
-#include <sys/file.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 
 #include <fbink.h>
 #include <libevdev/libevdev.h>
-#include <linux/input.h>
+#include <xkbcommon/xkbcommon.h>
 
 #include "evdev.h"
 #include "term.h"
@@ -37,7 +31,45 @@ static int draw_timeout = 10;
  * Most of the time, this is immediately after it is set. */
 static int refresh_next = 0;
 
+/* Some keys require special handling. */
+static struct {
+	int key;
+	struct {
+		int sz;
+		const char *data;
+	} val;
+} string_binds[] = {
+	// Purely to avoid calling strlen at runtime, the val struct is used to
+	// give a size to a string. The KEYSTR macro fills val for us.
+	// sizeof(str) includes NUL; we don't when we write to the pty
+#define KEYSTR(str) { .sz = (sizeof((str))-1), .data = (str) }
+	// Kernel keycodes, not XKB! Though, this may change sooner or later.
+	{ KEY_UP,		KEYSTR("\033[A") },
+	{ KEY_DOWN,		KEYSTR("\033[B") },
+	{ KEY_RIGHT,		KEYSTR("\033[C") },
+	{ KEY_LEFT,		KEYSTR("\033[D") },
+
+	// Going by what xterm uses...
+	{ KEY_F1,		KEYSTR("\033[OP") },
+	{ KEY_F2,		KEYSTR("\033[OQ") },
+	{ KEY_F3,		KEYSTR("\033[OR") },
+	{ KEY_F4,		KEYSTR("\033[OS") },
+	{ KEY_F5,		KEYSTR("\033[15~") },
+	{ KEY_F6,		KEYSTR("\033[17~") },
+	{ KEY_F7,		KEYSTR("\033[18~") },
+	{ KEY_F8,		KEYSTR("\033[19~") },
+	{ KEY_F9,		KEYSTR("\033[20~") },
+	{ KEY_F10,		KEYSTR("\033[21~") },
+	{ KEY_F11,		KEYSTR("\033[23~") },
+	{ KEY_F12,		KEYSTR("\033[24~") },
+#undef KEYSTR
+};
+
 struct term term = {0};
+
+static struct xkb_context *xkb_ctx = NULL;
+static struct xkb_keymap *xkb_keymap = NULL;
+static struct xkb_state *xkb_state = NULL;
 
 static void
 sigchld_handler(int _)
@@ -147,6 +179,103 @@ bellhandler(void)
 {
 	// Set a flag for draw.
 	refresh_next = 1;
+}
+
+static void
+free_xkb(void)
+{
+	// Free the state, if it was initialized.
+	if (xkb_state) {
+		xkb_state_unref(xkb_state);
+		xkb_state = NULL;
+	}
+
+	// Free the keymap, if it was initialized.
+	if (xkb_keymap) {
+		xkb_keymap_unref(xkb_keymap);
+		xkb_keymap = NULL;
+	}
+
+	// Free the context, if it was initialized.
+	if (xkb_ctx) {
+		xkb_context_unref(xkb_ctx);
+		xkb_ctx = NULL;
+	}
+}
+
+static int
+setup_xkb(void)
+{
+	// Get a context object.
+	xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+	if (!xkb_ctx)
+		goto fail;
+
+	// Load a keymap.
+	// TODO: Allow names to be configured.
+	xkb_keymap = xkb_keymap_new_from_names(xkb_ctx, NULL, XKB_KEYMAP_COMPILE_NO_FLAGS);
+	if (!xkb_keymap)
+		goto fail;
+
+	// And finally create a state.
+	xkb_state = xkb_state_new(xkb_keymap);
+	if (!xkb_state)
+		goto fail;
+
+	// Initialization successful.
+	return 0;
+
+fail:
+	free_xkb();
+	return -1;
+}
+
+static void
+handle_key(struct evdev_kbd *_, struct input_event ev)
+{
+	printf("Event: %s %s %d\n",
+	       libevdev_event_type_get_name(ev.type),
+	       libevdev_event_code_get_name(ev.type, ev.code),
+	       ev.value);
+
+	// evdev keycodes have a fixed offset of 8.
+	int code = ev.code + 8;
+
+	// If this is a repeated key, we can consult xkb to figure out what to
+	// do with it.
+	// If the key is supposed to repeat then business as usual.
+	if (ev.value == 2 && !xkb_keymap_key_repeats(xkb_keymap, code))
+		return;
+
+	// Check to see if the key was released (0).
+	if (ev.value == 0) {
+		// Tell xkb about it and return.
+		xkb_state_update_key(xkb_state, code, XKB_KEY_UP);
+		return;
+	} else if (ev.value == 1)
+		// Key was just pressed and is NOT a repeat.
+		xkb_state_update_key(xkb_state, code, XKB_KEY_DOWN);
+
+	// Check to see if this is a key that requires special handling.
+	for (int i = 0; i < ARRAYLEN(string_binds); ++i) {
+		// Note that this is ev.code and not code.
+		if (string_binds[i].key == ev.code) {
+			// Yes it is. Write the string to the pty and return.
+			// TODO: Handle partial writes in the unlikely event it
+			// happens.
+			write(term.pty, string_binds[i].val.data, string_binds[i].val.sz);
+			return;
+		}
+	}
+
+	// Write the key to the pty.
+	char outbuf[5] = {0}; // 4 bytes + 1 for NUL
+	int n = xkb_state_key_get_utf8(xkb_state, code, outbuf, sizeof(outbuf));
+	if (n == 0)
+		return; // Nothing more to do.
+
+	// TODO: Handle partial writes in the unlikely event it happens.
+	write(term.pty, outbuf, n);
 }
 
 void
@@ -314,12 +443,18 @@ main(int argc, char *argv[])
 	if (init_term(s.max_rows, s.max_cols, args) != 0)
 		die("failed to init vt: %s\n", strerror(errno));
 
-	if (evdev_init(event_file) == -1)
+	if (setup_xkb() == -1)
+		die("failed to init xkb: %s\n", strerror(errno));
+
+	struct evdev_kbd evk = {
+		.on_key = handle_key
+	};
+	if (evdev_init(&evk, event_file) == -1)
 		die("failed to init evdev: %s\n", strerror(errno));
 
 	struct pollfd pfds[] = {
 		{ .fd = term.pty, .events = POLLIN },
-		{ .fd = evdev_fd, .events = POLLIN },
+		{ .fd = evk.fd, .events = POLLIN },
 	};
 
 	// Main event loop.
@@ -354,7 +489,7 @@ main(int argc, char *argv[])
 
 		if (pfds[1].revents & POLLIN) {
 			// Key press, probably
-			if (evdev_handle() == -1) {
+			if (evdev_handle(&evk) == -1) {
 				perror("evdev_handle");
 				break;
 			}
@@ -375,6 +510,7 @@ main(int argc, char *argv[])
 
 	// Cleanup.
 	fbink_close(fb);
-	evdev_free();
+	free_xkb();
+	evdev_free(&evk);
 	term_free(&term);
 }
