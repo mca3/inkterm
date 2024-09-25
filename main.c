@@ -1,4 +1,4 @@
-#if 0
+#if 1
 #define _POSIX_C_SOURCE 199309L
 #include <time.h>
 #endif
@@ -350,6 +350,8 @@ draw(int fb)
 		fbink_wait_for_complete(fb, 0); // This is slow!
 		fbc.is_flashing = 0;
 	}
+
+	term_flip(&term);
 }
 
 int
@@ -491,7 +493,7 @@ main(int argc, char *argv[])
 			// It was. Set timeout to infinity and draw.
 			writing = 0;
 
-#if 0
+#if 1
 			struct timespec start, end;
 			clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 			draw(fb);

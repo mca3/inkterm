@@ -62,7 +62,12 @@ damage(struct term *term, int row, int col)
 	assert(row >= 0 && row <= term->rows-1);
 	assert(col >= 0 && col <= term->cols-1);
 
+	// Check to see if anything has even changed
 	int idx = (row*term->cols)+col;
+	if (memcmp(&term->cells[idx], &term->cells2[idx], sizeof(*term->cells)) == 0)
+		// Nothing changed.
+		return;
+
 	int bit = idx % DAMAGE_WIDTH;
 	int byt = idx / DAMAGE_WIDTH;
 	term->damage[byt] |= (term_damage_t)(1)<<(bit);
@@ -72,8 +77,13 @@ damage(struct term *term, int row, int col)
 static inline void
 damageline(struct term *term, int row)
 {
-	// This function is sloppy because I don't care enough to make it not
-	// sloppy.
+	assert(row >= 0 && row <= term->rows-1);
+
+	// Check to see if anything has even changed
+	int idx = row*term->cols;
+	if (memcmp(&term->cells[idx], &term->cells2[idx], sizeof(*term->cells)*term->cols) == 0)
+		// Nothing changed.
+		return;
 
 	for (int i = 0; i < term->cols; ++i)
 		damage(term, row, i);
@@ -83,7 +93,8 @@ damageline(struct term *term, int row)
 static inline void
 damagescr(struct term *term)
 {
-	memset(term->damage, 0xFF, DAMAGE_BYTES(term));
+	for (int i = 0; i < term->rows; ++i)
+		damageline(term, i);
 }
 
 static void
@@ -109,9 +120,10 @@ newline(struct term *term, int firstcol)
 		&term->cells[(term->margin_top+1)*term->cols],
 		sizeof(*term->cells)*((term->margin_bottom-term->margin_top)*term->cols)
 	);
-	
+
 	// Clear the new line.
 	memset(&term->cells[term->margin_bottom*term->cols], 0, sizeof(*term->cells)*term->cols);
+
 
 	// Damage everything in between the margins.
 	// If the margins are 0 and term->rows-1, then damage the screen.
@@ -145,7 +157,7 @@ control(struct term *term, rune c)
 		term_move(term, term->row, 0);
 		break;
 	case '\f': // FF; Form feed
-		// This is ^L which I use quite often.	
+		// This is ^L which I use quite often.
 		term_clear(term, 2);
 		term_move(term, 0, 0);
 		break;
@@ -262,7 +274,7 @@ csi(struct term *term)
 		break;
 	case 'n': // DSR; Device status report
 		if (args[0] == 6) {
-			// Get cursor position 
+			// Get cursor position
 			int ret = snprintf(term->esc_buf, sizeof(term->esc_buf), "\033[%d;%dR", term->row+1, term->col+1);
 			write(term->pty, term->esc_buf, ret);
 		}
@@ -287,88 +299,7 @@ csi(struct term *term)
 	term->esc_state = ESC_NONE;
 }
 
-int
-term_init(struct term *term, int rows, int cols, int *slave)
-{
-	int old_errno;
-
-	// Sanity checks
-	assert(rows > 0);
-	assert(cols > 0);
-	assert(slave);
-
-	// Initialize the term struct.
-	memset(term, 0, sizeof(*term));
-
-	// Set fields
-	term->rows = rows;
-	term->cols = cols;
-
-	// The bottom margin is always the number of rows unless explicitly set otherwise.
-	term->margin_bottom = rows-1;
-
-	// Set up the cells array.
-	term->cells = malloc(sizeof(*term->cells)*rows*cols);
-	if (!term->cells)
-		goto fail;
-	memset(term->cells, 0, sizeof(*term->cells)*rows*cols); 
-
-	// Setup the damage array.
-	term->damage = malloc(DAMAGE_BYTES(term));
-	if (!term->damage)
-		goto fail;
-	memset(term->damage, 0, DAMAGE_BYTES(term)); 
-
-	// Now that the term struct is initialized, we can set up a pty.
-	if (openpty(&term->pty, slave, NULL, NULL, NULL) == -1)
-		goto fail;
-
-	// Set terminal size.
-	// This isn't fatal.
-	struct winsize w = {0};
-	w.ws_row = rows;
-	w.ws_col = cols;
-	if (ioctl(term->pty, TIOCSWINSZ, &w) < 0)
-		fprintf(stderr, "TIOCSWINSZ failed: %s\n", strerror(errno));
-
-	// Everything was successful.
-	return 0;
-
-fail:
-	// Everything below only matters if term is not NULL.
-	old_errno = errno; /* free can set errno */
-
-	// The pty is closed if we get here, because it is the last step that
-	// can fail.
-
-	if (term->damage) free(term->damage);
-	if (term->cells) free(term->cells);
-
-	// Restore errno
-	errno = old_errno;
-
-	return -1;
-}
-
-void
-term_free(struct term *term)
-{
-	if (term->pty)
-		// Is this a good idea?
-		close(term->pty);
-
-	if (term->damage)
-		// term->damage==NULL is never true in normal usage, but it
-		// never hurts to check.
-		free(term->damage);
-
-	if (term->cells)
-		// term->cells==NULL is never true in normal usage, but it never
-		// hurts to check.
-		free(term->cells);
-}
-
-void
+static void
 term_putr(struct term *term, rune c)
 {
 	// Check for control characters.
@@ -439,6 +370,99 @@ term_putr(struct term *term, rune c)
 		term->state |= STATE_WRAPNEXT;
 }
 
+void
+term_flip(struct term *term)
+{
+	memmove(term->cells2, term->cells, sizeof(*term->cells)*term->rows*term->cols);
+}
+
+int
+term_init(struct term *term, int rows, int cols, int *slave)
+{
+	int old_errno;
+
+	// Sanity checks
+	assert(rows > 0);
+	assert(cols > 0);
+	assert(slave);
+
+	// Initialize the term struct.
+	memset(term, 0, sizeof(*term));
+
+	// Set fields
+	term->rows = rows;
+	term->cols = cols;
+
+	// The bottom margin is always the number of rows unless explicitly set otherwise.
+	term->margin_bottom = rows-1;
+
+	// Set up the cells array.
+	term->cells = malloc(sizeof(*term->cells)*rows*cols);
+	if (!term->cells)
+		goto fail;
+	memset(term->cells, 0, sizeof(*term->cells)*rows*cols);
+
+	// Set up the second cells array, for double buffering.
+	term->cells2 = malloc(sizeof(*term->cells2)*rows*cols);
+	if (!term->cells)
+		goto fail;
+	memset(term->cells2, 0, sizeof(*term->cells2)*rows*cols);
+
+	// Setup the damage array.
+	term->damage = malloc(DAMAGE_BYTES(term));
+	if (!term->damage)
+		goto fail;
+	memset(term->damage, 0, DAMAGE_BYTES(term));
+
+	// Now that the term struct is initialized, we can set up a pty.
+	if (openpty(&term->pty, slave, NULL, NULL, NULL) == -1)
+		goto fail;
+
+	// Set terminal size.
+	// This isn't fatal.
+	struct winsize w = {0};
+	w.ws_row = rows;
+	w.ws_col = cols;
+	if (ioctl(term->pty, TIOCSWINSZ, &w) < 0)
+		fprintf(stderr, "TIOCSWINSZ failed: %s\n", strerror(errno));
+
+	// Everything was successful.
+	return 0;
+
+fail:
+	// Everything below only matters if term is not NULL.
+	old_errno = errno; /* free can set errno */
+
+	// The pty is closed if we get here, because it is the last step that
+	// can fail.
+
+	if (term->damage) free(term->damage);
+	if (term->cells) free(term->cells);
+	if (term->cells2) free(term->cells2);
+
+	// Restore errno
+	errno = old_errno;
+
+	return -1;
+}
+
+void
+term_free(struct term *term)
+{
+	if (term->pty)
+		// Is this a good idea?
+		close(term->pty);
+
+	if (term->damage)
+		free(term->damage);
+
+	if (term->cells)
+		free(term->cells);
+
+	if (term->cells2)
+		free(term->cells2);
+}
+
 size_t
 term_write(struct term *term, unsigned char *buf, size_t n)
 {
@@ -482,8 +506,6 @@ term_move(struct term *term, int y, int x)
 void
 term_clear(struct term *term, int dir)
 {
-	damagescr(term);
-
 	switch (dir) {
 	case 0: // ED0; Clear screen from cursor down
 		memset(&term->cells[(term->row*term->cols)+term->col], 0, sizeof(*term->cells)*((term->rows*term->cols)-((term->row*term->cols)+term->col)));
@@ -495,14 +517,14 @@ term_clear(struct term *term, int dir)
 		memset(term->cells, 0, sizeof(*term->cells)*term->rows*term->cols);
 		break;
 	}
+
+	damagescr(term);
 }
 
 void
 term_clearline(struct term *term, int dir)
 {
 	struct cell *row = &term->cells[(term->row*term->cols)];
-
-	damageline(term, term->row);
 
 	switch (dir) {
 	case 0: // EL0; Clear line from cursor right
@@ -515,4 +537,6 @@ term_clearline(struct term *term, int dir)
 		memset(row, 0, sizeof(*row)*(term->cols));
 		break;
 	}
+
+	damageline(term, term->row);
 }

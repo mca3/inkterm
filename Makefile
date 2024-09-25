@@ -17,17 +17,17 @@ endif
 all: inkterm
 
 inkterm: main.o $(OBJ) $(LIBS)
-	$(CC) -o $@ $(CFLAGS) main.o $(OBJ) $(LDFLAGS) 
+	$(CC) -o $@ $(CFLAGS) main.o $(OBJ) $(LDFLAGS)
 
 test: test.o $(OBJ) $(LIBS)
-	$(CC) -o $@ $(CFLAGS) test.o $(OBJ) $(LDFLAGS) 
+	$(CC) -o $@ $(CFLAGS) test.o $(OBJ) $(LDFLAGS)
 
 #
 # Libraries
 #
 
 FBInk/Release/libfbink.a:
-	$(MAKE) -C FBInk LINUX=1 MINIMAL=1 BITMAP=1 DRAW=1 FONTS=1 static 
+	$(MAKE) -C FBInk LINUX=1 MINIMAL=1 BITMAP=1 DRAW=1 FONTS=1 static
 
 libxkbcommon/build/build.ninja:
 	cd libxkbcommon && meson setup build \

@@ -42,6 +42,7 @@ struct term {
 
 	int pty;
 	struct cell *cells;
+	struct cell *cells2; // double buffer!
 	term_damage_t *damage;
 
 	char attr;
@@ -70,8 +71,11 @@ int term_init(struct term *term, int rows, int cols, int *slave);
 /** Frees all related data with the term struct. */
 void term_free(struct term *term);
 
-/** Writes the specified character to the terminal. */
-void term_putr(struct term *term, rune c);
+/* Copies the content of the current state of the screen to the off-screen
+ * buffer for faster damage tracking.
+ * Call this after rendering has taken place.
+ */
+void term_flip(struct term *term);
 
 /** Write data to the terminal.
  * The return value is how many bytes that were read from the input.
@@ -84,7 +88,7 @@ size_t term_write(struct term *term, unsigned char *buf, size_t n);
 void term_move(struct term *term, int y, int x);
 
 /** Clear the screen.
- * 
+ *
  * 0 clears from cursor down.
  * 1 clears from cursor up.
  * 2 clears the entire screen.
@@ -93,7 +97,7 @@ void term_move(struct term *term, int y, int x);
 void term_clear(struct term *term, int dir);
 
 /** Clear a line on the screen.
- * 
+ *
  * 0 clears to the right of the cursor.
  * 1 clears to the left of the cursor.
  * 2 clears the entire line.
