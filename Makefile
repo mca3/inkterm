@@ -1,5 +1,5 @@
 CC = cc
-CFLAGS = -O0 -std=c99 -pedantic -Wall -Werror -g -IFBInk -Ilibxkbcommon/include -Ilibevdev
+CFLAGS = -O2 -std=c99 -pedantic -Wall -Werror -g -IFBInk -Ilibxkbcommon/include -Ilibevdev
 LDFLAGS = -LFBInk/Release -lfbink -Llibxkbcommon/build -lxkbcommon -Llibevdev/build -levdev -static
 DESTDIR = _install
 

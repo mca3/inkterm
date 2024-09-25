@@ -15,7 +15,17 @@
  * character. */
 #define STATE_WRAPNEXT		(1 << 0)
 
+/* Helper defines for damage tracking. */
+#define DAMAGE_WIDTH (8*sizeof(term_damage_t))
+#define DAMAGE_ROW(term, idx) ((idx)/((term)->cols))
+#define DAMAGE_COL(term, idx) ((idx)%((term)->cols))
+#define DAMAGE_BITS(term) ((term)->rows*(term)->cols)
+#define DAMAGE_BYTES(term) ((DAMAGE_BITS(term)+(sizeof(term_damage_t)))/8)
+
 #include "utf8.h"
+
+// TODO: Investigate why unsigned long raises an assertion in xkbcommon
+typedef unsigned short term_damage_t;
 
 struct cell {
 	rune c;
@@ -32,7 +42,7 @@ struct term {
 
 	int pty;
 	struct cell *cells;
-	unsigned char *damage;
+	term_damage_t *damage;
 
 	char attr;
 	char state;

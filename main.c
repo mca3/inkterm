@@ -1,3 +1,8 @@
+#if 0
+#define _POSIX_C_SOURCE 199309L
+#include <time.h>
+#endif
+
 #include <errno.h>
 #include <getopt.h>
 #include <poll.h>
@@ -300,22 +305,24 @@ draw(int fb)
 	// and checks to see if there is any damage, and if there is, then we
 	// will repaint the affected cells.
 	int r, c;
-	for (int byt = 0; byt < (term.rows*term.cols)/8; ++byt) {
+	for (int byt = 0; byt < DAMAGE_BYTES(&term); ++byt) {
 		if (!term.damage[byt])
 			// No damage branch. Keep on going.
 			continue;
 
-		// Damage in this region.
-		int idx = byt*8;
-		unsigned char p = term.damage[byt];
-		for (int bit = 0; bit < 8; ++bit) {
-			// Each bit here represents a cell.
-			if (!!(p&(1<<bit))) {
-				// This cell is damaged.
-				r = (idx+bit)/term.cols;
-				c = (idx+bit)%term.cols;
-				draw_cell(fb, r, c);
-			}
+		term_damage_t p = term.damage[byt];
+
+		int idx = byt * DAMAGE_WIDTH; // Offset in bits
+		int bit;
+		while ((bit = __builtin_ffs(p)) != 0) {
+			bit -= 1; // lsb is 1
+
+			r = DAMAGE_ROW(&term, idx+bit);
+			c = DAMAGE_COL(&term, idx+bit);
+			draw_cell(fb, r, c);
+
+			// Unset the bit we drew.
+			p &= ~(1 << bit);
 		}
 
 		// Unmark the damage.
@@ -483,7 +490,18 @@ main(int argc, char *argv[])
 		if (rc == 0 && writing) {
 			// It was. Set timeout to infinity and draw.
 			writing = 0;
+
+#if 0
+			struct timespec start, end;
+			clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 			draw(fb);
+			clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+
+			uint64_t delta_us = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
+			printf("draw took %ld us\n", delta_us);
+#else
+			draw(fb);
+#endif
 
 			// rc == 0 so there is nothing more to do.
 			continue;

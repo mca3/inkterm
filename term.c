@@ -63,12 +63,12 @@ damage(struct term *term, int row, int col)
 	assert(col >= 0 && col <= term->cols-1);
 
 	int idx = (row*term->cols)+col;
-	int bit = idx%8;
-	int byt = idx/8;
-	term->damage[byt] |= 1<<(bit);
+	int bit = idx % DAMAGE_WIDTH;
+	int byt = idx / DAMAGE_WIDTH;
+	term->damage[byt] |= (term_damage_t)(1)<<(bit);
 }
 
-/** Mark a single line as damage. */
+/** Mark a single line as damaged. */
 static inline void
 damageline(struct term *term, int row)
 {
@@ -83,8 +83,7 @@ damageline(struct term *term, int row)
 static inline void
 damagescr(struct term *term)
 {
-	int sz = (term->rows*term->cols)/8;
-	memset(term->damage, 0xFF, sz);
+	memset(term->damage, 0xFF, DAMAGE_BYTES(term));
 }
 
 static void
@@ -315,10 +314,10 @@ term_init(struct term *term, int rows, int cols, int *slave)
 	memset(term->cells, 0, sizeof(*term->cells)*rows*cols); 
 
 	// Setup the damage array.
-	term->damage = malloc(sizeof(*term->damage)*(rows*cols+1));
+	term->damage = malloc(DAMAGE_BYTES(term));
 	if (!term->damage)
 		goto fail;
-	memset(term->damage, 0, (rows*cols+1)/sizeof(*term->damage)); 
+	memset(term->damage, 0, DAMAGE_BYTES(term)); 
 
 	// Now that the term struct is initialized, we can set up a pty.
 	if (openpty(&term->pty, slave, NULL, NULL, NULL) == -1)
