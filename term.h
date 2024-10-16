@@ -15,6 +15,9 @@
  * character. */
 #define STATE_WRAPNEXT		(1 << 0)
 
+/* Hack workaround. */
+#define STATE_EATNEXT		(1 << 1)
+
 /* Helper defines for damage tracking. */
 #define DAMAGE_WIDTH (8*sizeof(term_damage_t))
 #define DAMAGE_ROW(term, idx) ((idx)/((term)->cols))

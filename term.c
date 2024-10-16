@@ -227,7 +227,18 @@ esc(struct term *term, rune c)
 	case '8': // DECRC; DEC Restore Cursor
 		term_move(term, term->oldrow, term->oldcol);
 		break;
-	default: /* do nothing */ break;
+	case '(':
+		/* This asks the terminal to choose a different character set.
+		 * Since that's kinda hard for us to do, we're just gonna
+		 * ignore it for now :)
+		 * But we do need to eat the next character that comes in. */
+
+		// TODO: Replace with a less terrible workaround.
+		term->state |= STATE_EATNEXT;
+		break;
+	default:
+		printf("unknown esc: %c (0x%X)\n", c, c);
+		break;
 	}
 }
 
@@ -553,6 +564,14 @@ term_write(struct term *term, unsigned char *buf, size_t n)
 	// Loop through all chars.
 	int i,j;
 	for (i=j=0; i < n; i+=j) {
+		if (term->state & STATE_EATNEXT) {
+			// TODO: Use a less terrible workaround.
+			// See esc.
+			j = 1;
+			term->state &= ~STATE_EATNEXT;
+			continue;
+		}
+
 		rune r = 0;
 		if ((j = utf8_decode(buf+i, n-i, &r)) == 0)
 			return i;
