@@ -29,6 +29,7 @@ typedef unsigned short term_damage_t;
 
 struct cell {
 	rune c;
+	uint32_t bg, fg; // *rgb
 	char attr;
 };
 
@@ -47,6 +48,7 @@ struct term {
 
 	char attr;
 	char state;
+	uint32_t bg, fg;
 
 	char esc_buf[ESC_BUFSZ];
 	int esc;
@@ -54,6 +56,8 @@ struct term {
 
 	void (*on_bell)(void);
 };
+
+extern const uint32_t colors[16];
 
 /** Initializes the terminal with the number of rows and cols.
  * All data is overwritten in the passed struct.

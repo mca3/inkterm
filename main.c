@@ -168,10 +168,27 @@ draw_cell(int fb, int y, int x)
 	fbc.row = y;
 	fbc.col = x;
 
-	fbc.is_inverted = !!(term.cells[(y*term.cols)+x].attr & ATTR_REVERSE);
+	struct cell cell = term.cells[(y*term.cols)+x];
+
+	fbc.is_inverted = !!(cell.attr & ATTR_REVERSE);
 	fbc.is_inverted ^= (x == term.col && y == term.row);
 
-	struct cell cell = term.cells[(y*term.cols)+x];
+	fbink_set_fg_pen_rgba(
+		(cell.fg & 0x00FF0000     >> 16)& 0xFF,
+		(cell.fg & 0x0000FF00     >> 8) & 0xFF,
+		(cell.fg & 0x000000FF)		& 0xFF,
+		0xFF,
+		0, 1
+	);
+
+	fbink_set_bg_pen_rgba(
+		(cell.bg & 0x00FF0000     >> 16)& 0xFF,
+		(cell.bg & 0x0000FF00     >> 8) & 0xFF,
+		(cell.bg & 0x000000FF)		& 0xFF,
+		0xFF,
+		0, 1
+	);
+
 	if (cell.c && cell.attr != ATTR_WIDEDUMMY) {
 		unsigned char *c = utf8_encode(cell.c, NULL);
 		fbink_print(fb, (char *)c, &fbc);

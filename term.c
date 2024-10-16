@@ -55,6 +55,30 @@ static int attr_table[] = {
 	[8] =	0,		// Invisible
 };
 
+// NOTE: Because inkterm targets e-readers, this is in light mode!
+// TODO: Colors. fbink can do colors and will dither them.
+const uint32_t colors[] = {
+	0x00FFFFFF,
+	0x00EEEEEE,
+	0x00DDDDDD,
+	0x00CCCCCC,
+	0x00BBBBBB,
+	0x00AAAAAA,
+	0x00999999,
+	0x00888888,
+	0x00777777,
+	0x00666666,
+	0x00555555,
+	0x00444444,
+	0x00333333,
+	0x00222222,
+	0x00111111,
+	0x00000000,
+};
+
+static uint32_t default_bg = colors[ 0],
+		default_fg = colors[15];
+
 /** Marks a cell at row/col as damaged. */
 static inline void
 damage(struct term *term, int row, int col)
@@ -97,6 +121,28 @@ damagescr(struct term *term)
 		damageline(term, i);
 }
 
+static inline void
+init_row(struct term *term, int y)
+{
+	assert(y >= 0 && y < term->rows);
+
+	// TODO: Do better!
+	for (int i = 0; i < term->cols; i++) {
+		term->cells[y*term->cols+i].bg = term->bg;
+		term->cells[y*term->cols+i].fg = term->fg;
+		term->cells[y*term->cols+i].attr = term->attr;
+	}
+}
+
+static inline void
+init_cells(struct term *term)
+{
+	// TODO: Do better!
+	for (int i = 0; i < term->rows; i++) {
+		init_row(term, i);
+	}
+}
+
 static void
 newline(struct term *term, int firstcol)
 {
@@ -123,7 +169,7 @@ newline(struct term *term, int firstcol)
 
 	// Clear the new line.
 	memset(&term->cells[term->margin_bottom*term->cols], 0, sizeof(*term->cells)*term->cols);
-
+	init_row(term, term->rows-1);
 
 	// Damage everything in between the margins.
 	// If the margins are 0 and term->rows-1, then damage the screen.
@@ -183,6 +229,28 @@ esc(struct term *term, rune c)
 		break;
 	default: /* do nothing */ break;
 	}
+}
+
+static void
+apply(struct term *term, int val)
+{
+	if (val < sizeof(attr_table)/sizeof(*attr_table)) {
+		term->attr ^= attr_table[val];
+		return;
+	}
+
+	// Colors!
+	if (30 <= val && val <= 37) {
+		term->fg = colors[val-30];
+	} else if (40 <= val && val <= 47) {
+		term->bg = colors[val-40];
+	} else if (90 <= val && val <= 97) {
+		term->fg = colors[val-90+8];
+	} else if (100 <= val && val <= 107) {
+		term->bg = colors[val-100+8];
+	}
+
+	// Everything else should be silently ignored.
 }
 
 static void
@@ -268,8 +336,11 @@ csi(struct term *term)
 	case 'm': // SGR; Set character attribute
 		if (!narg) narg=1,args[0]=0;
 		for (int i = 0; i < narg; i++) {
-			if (args[i] == 0) term->attr = 0;
-			else if (args[i] < sizeof(attr_table)/sizeof(*attr_table)) term->attr ^= attr_table[args[i]];
+			if (args[i] == 0) {
+				term->attr = 0;
+				term->bg = default_bg;
+				term->fg = default_fg;
+			} else apply(term, args[i]);
 		}
 		break;
 	case 'n': // DSR; Device status report
@@ -349,8 +420,11 @@ term_putr(struct term *term, rune c)
 	}
 
 	// Place the char and increment the cursor.
-	term->cells[(term->cols*term->row)+term->col].c = c;
-	term->cells[(term->cols*term->row)+term->col].attr = term->attr;
+	struct cell *cell = &term->cells[(term->cols*term->row)+term->col];
+	cell->c = c;
+	cell->attr = term->attr;
+	cell->bg = term->bg;
+	cell->fg = term->fg;
 	damage(term, term->row, term->col);
 
 	// Wide characters have a dummy cell placed ahead of it.
@@ -392,6 +466,8 @@ term_init(struct term *term, int rows, int cols, int *slave)
 	// Set fields
 	term->rows = rows;
 	term->cols = cols;
+	term->bg = default_bg;
+	term->fg = default_fg;
 
 	// The bottom margin is always the number of rows unless explicitly set otherwise.
 	term->margin_bottom = rows-1;
@@ -401,12 +477,13 @@ term_init(struct term *term, int rows, int cols, int *slave)
 	if (!term->cells)
 		goto fail;
 	memset(term->cells, 0, sizeof(*term->cells)*rows*cols);
+	init_cells(term);
 
 	// Set up the second cells array, for double buffering.
 	term->cells2 = malloc(sizeof(*term->cells2)*rows*cols);
 	if (!term->cells)
 		goto fail;
-	memset(term->cells2, 0, sizeof(*term->cells2)*rows*cols);
+	memmove(term->cells2, term->cells, sizeof(*term->cells2)*rows*cols);
 
 	// Setup the damage array.
 	term->damage = malloc(DAMAGE_BYTES(term));
@@ -508,13 +585,32 @@ term_clear(struct term *term, int dir)
 {
 	switch (dir) {
 	case 0: // ED0; Clear screen from cursor down
-		memset(&term->cells[(term->row*term->cols)+term->col], 0, sizeof(*term->cells)*((term->rows*term->cols)-((term->row*term->cols)+term->col)));
+		memset(
+			&term->cells[(term->row*term->cols)+term->col],
+			0,
+			sizeof(*term->cells)*((term->rows*term->cols)-((term->row*term->cols)+term->col))
+		);
+		for (int i = 0; i < term->col; i++) {
+			term->cells[(term->row*term->cols)+i].bg = term->bg;
+			term->cells[(term->row*term->cols)+i].fg = term->fg;
+			term->cells[(term->row*term->cols)+i].attr = term->attr;
+		}
+		for (int i = term->row+1; i < term->rows; ++i)
+			init_row(term, i);
 		break;
 	case 1: // ED1; Clear screen from cursor up
 		memset(term->cells, 0, sizeof(*term->cells)*((term->row*term->cols)+term->col));
+		for (int i = 0; i < term->rows; ++i)
+			init_row(term, i);
+		for (int i = 0; i < term->col; i++) {
+			term->cells[(term->row*term->cols)+i].bg = term->bg;
+			term->cells[(term->row*term->cols)+i].fg = term->fg;
+			term->cells[(term->row*term->cols)+i].attr = term->attr;
+		}
 		break;
 	case 2: // ED2; Clear screen
 		memset(term->cells, 0, sizeof(*term->cells)*term->rows*term->cols);
+		init_cells(term);
 		break;
 	}
 
@@ -529,14 +625,26 @@ term_clearline(struct term *term, int dir)
 	switch (dir) {
 	case 0: // EL0; Clear line from cursor right
 		memset(row+term->col, 0, sizeof(*row)*(term->cols-term->col));
+		for (int i = term->col; i < term->cols; i++) {
+			row[i].bg = term->bg;
+			row[i].fg = term->fg;
+			row[i].attr = term->attr;
+			damage(term, term->row, i);
+		}
 		break;
 	case 1: // EL1; Clear line from cursor left
 		memset(row, 0, sizeof(*row)*(term->col));
+		for (int i = 0; i < term->col; i++) {
+			row[i].bg = term->bg;
+			row[i].fg = term->fg;
+			row[i].attr = term->attr;
+			damage(term, term->row, i);
+		}
 		break;
 	case 2: // EL2; Clear line
 		memset(row, 0, sizeof(*row)*(term->cols));
+		init_row(term, term->row);
+		damageline(term, term->row);
 		break;
 	}
-
-	damageline(term, term->row);
 }
