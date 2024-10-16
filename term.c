@@ -333,6 +333,10 @@ csi(struct term *term)
 		if (!narg) args[0] = 1;
 		if (term->col > 0) term_move(term, term->row, term->col-args[0]);
 		break;
+	case 'd': // VPA; Line Position Absolute
+		if (!narg) args[0] = 1;
+		term_move(term, args[0]-1, term->col);
+		break;
 	case 'G': // CHA: Cursor Character Absolute
 		if (!narg) args[0] = 1;
 		term_move(term, term->row, args[0]-1);
