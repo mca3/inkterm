@@ -11,6 +11,10 @@ ifdef GCOV
 	CFLAGS+=-fprofile-arcs -ftest-coverage
 endif
 
+ifdef RELEASE
+	CFLAGS+=-DNDEBUG
+endif
+
 %.o: %.c
 	$(CC) -c -o $@ $(CFLAGS) $<
 
