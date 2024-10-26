@@ -126,6 +126,8 @@ init_row(struct term *term, int y)
 {
 	assert(y >= 0 && y < term->rows);
 
+	memset(&term->cells[y*term->cols], 0, sizeof(*term->cells)*term->cols);
+
 	// TODO: Do better!
 	for (int i = 0; i < term->cols; i++) {
 		term->cells[y*term->cols+i].bg = term->bg;
@@ -141,6 +143,25 @@ init_cells(struct term *term)
 	for (int i = 0; i < term->rows; i++) {
 		init_row(term, i);
 	}
+}
+
+static void
+dellines(struct term *term, int row, int count)
+{
+	if (count == 0)
+		return;
+	else if (row+count >= term->margin_bottom)
+		count = term->margin_bottom - row - 1;
+
+	struct cell *dst = &term->cells[row*term->cols];
+	struct cell *src = &term->cells[(row+count)*term->cols];
+
+	memmove(dst, src, sizeof(*term->cells)*(term->margin_bottom-row-count+1)*term->cols);
+	for (int i = term->margin_bottom-count+1; i <= term->margin_bottom; ++i)
+		init_row(term, i);
+
+	// TODO: This is lazy
+	damagescr(term);
 }
 
 static void
@@ -161,6 +182,7 @@ newline(struct term *term, int firstcol)
 	// Assertions are to make sure the margins are in line with what they should be.
 	assert(term->margin_top >= 0 && term->margin_top < term->margin_bottom);
 	assert(term->margin_bottom > term->margin_top && term->margin_bottom <= term->rows-1);
+
 	memmove(
 		&term->cells[term->margin_top*term->cols],
 		&term->cells[(term->margin_top+1)*term->cols],
@@ -351,6 +373,10 @@ csi(struct term *term)
 		break;
 	case 'K': // Clear line
 		term_clearline(term, args[0]);
+		break;
+	case 'M': // DL; Delete Lines
+		if (!narg) args[0]=1;
+		dellines(term, term->row, args[0]);
 		break;
 	case 'm': // SGR; Set character attribute
 		if (!narg) narg=1,args[0]=0;
