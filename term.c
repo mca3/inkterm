@@ -407,6 +407,16 @@ csi(struct term *term)
 		term->margin_bottom = args[1]-1;
 		term_move(term, 0,0);
 		break;
+	case 'X': // ECH: Erase n Characters
+		if (!args[0]) args[0] = 1;
+		for (int i = term->col; i < term->cols && args[0]; i++,args[0]--) {
+			term->cells[term->row*term->cols+i].c = 0;
+			term->cells[term->row*term->cols+i].bg = term->bg;
+			term->cells[term->row*term->cols+i].fg = term->fg;
+			term->cells[term->row*term->cols+i].attr = term->attr;
+			damage(term, term->row, i);
+		}
+		break;
 	default:
 		fprintf(stderr, "unknown CSI code %s (type = %c/0x%02x)\n", term->esc_buf, *buf, *buf);
 		break;
