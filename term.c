@@ -662,10 +662,12 @@ term_clear(struct term *term, int dir)
 			init_row(term, i);
 		break;
 	case 1: // ED1; Clear screen from cursor up
-		memset(term->cells, 0, sizeof(*term->cells)*((term->row*term->cols)+term->col));
-		for (int i = 0; i < term->rows; ++i)
+		if (term->row >= 1)
+			memset(term->cells, 0, sizeof(*term->cells)*(((term->row-1)*term->cols)+term->col));
+		for (int i = 0; i < term->row; ++i)
 			init_row(term, i);
-		for (int i = 0; i < term->col; i++) {
+		for (int i = 0; i <= term->col; i++) {
+			term->cells[(term->row*term->cols)+i].c = 0;
 			term->cells[(term->row*term->cols)+i].bg = term->bg;
 			term->cells[(term->row*term->cols)+i].fg = term->fg;
 			term->cells[(term->row*term->cols)+i].attr = term->attr;
