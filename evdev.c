@@ -74,7 +74,7 @@ done:
 }
 
 int
-evdev_init(struct evdev_kbd *evk, char *eventfile)
+evdev_init(struct evdev *evk, char *eventfile)
 {
 	assert(evk);
 
@@ -138,7 +138,7 @@ fail:	; // The semicolon is intentional.
 }
 
 void
-evdev_free(struct evdev_kbd *evk)
+evdev_free(struct evdev *evk)
 {
 	assert(evk);
 
@@ -147,7 +147,7 @@ evdev_free(struct evdev_kbd *evk)
 }
 
 int
-evdev_handle(struct evdev_kbd *evk)
+evdev_handle(struct evdev *evk)
 {
 	int rc;
 	struct input_event ev;

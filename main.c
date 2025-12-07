@@ -253,7 +253,7 @@ fail:
 }
 
 static void
-handle_key(struct evdev_kbd *_, struct input_event ev)
+handle_key(struct evdev *_, struct input_event ev)
 {
 #if 0
 	printf("Event: %s %s %d\n",
@@ -303,7 +303,7 @@ handle_key(struct evdev_kbd *_, struct input_event ev)
 }
 
 static void
-handle_mouse(struct evdev_kbd *_, struct input_event ev)
+handle_mouse(struct evdev *_, struct input_event ev)
 {
 	printf("Event: %s %s %d\n",
 	       libevdev_event_type_get_name(ev.type),
@@ -484,13 +484,13 @@ main(int argc, char *argv[])
 	if (setup_xkb() == -1)
 		die("failed to init xkb: %s\n", strerror(errno));
 
-	struct evdev_kbd evk = {
+	struct evdev evk = {
 		.on_key = handle_key
 	};
 	if (evdev_init(&evk, event_file) == -1)
 		die("failed to init evdev for kbd: %s\n", strerror(errno));
 
-	struct evdev_kbd evm = {
+	struct evdev evm = {
 		.on_key = handle_mouse,
 		.on_mouse = handle_mouse
 	};
