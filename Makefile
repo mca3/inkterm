@@ -26,6 +26,9 @@ inkterm: main.o $(OBJ) $(LIBS)
 test: test.o $(OBJ) $(LIBS)
 	$(CC) -o $@ $(CFLAGS) test.o $(OBJ) $(LDFLAGS)
 
+mousetest: mousetest.o
+	$(CC) -o $@ $(CFLAGS) mousetest.o $(LDFLAGS)
+
 #
 # Libraries
 #
