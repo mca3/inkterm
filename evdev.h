@@ -13,6 +13,9 @@ struct evdev_kbd {
 
 	/** on key handler */
 	void (*on_key)(struct evdev_kbd *evk, struct input_event ev);
+
+	/** on mouse handler */
+	void (*on_mouse)(struct evdev_kbd *evk, struct input_event ev);
 };
 
 /** Initializes evdev and xkbcommon to read keyboard events from eventfile.

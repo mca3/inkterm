@@ -159,6 +159,8 @@ evdev_handle(struct evdev_kbd *evk)
 		rc = libevdev_next_event(evk->ctx, LIBEVDEV_READ_FLAG_NORMAL, &ev);
 		if (rc == 0 && ev.type == EV_KEY)
 			evk->on_key(evk, ev);
+		else if (rc == 0 && ev.type == EV_ABS)
+			evk->on_mouse(evk, ev);
 	} while (rc == 1);
 
 	if (rc < 0)

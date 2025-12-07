@@ -302,6 +302,15 @@ handle_key(struct evdev_kbd *_, struct input_event ev)
 	write(term.pty, outbuf, n);
 }
 
+static void
+handle_mouse(struct evdev_kbd *_, struct input_event ev)
+{
+	printf("Event: %s %s %d\n",
+	       libevdev_event_type_get_name(ev.type),
+	       libevdev_event_code_get_name(ev.type, ev.code),
+	       ev.value);
+}
+
 void
 draw(int fb)
 {
@@ -445,12 +454,13 @@ main(int argc, char *argv[])
 	}
 
 	// Specified or automatically detected
-	char *event_file = NULL;
+	char *event_file = NULL, *mouse_file = NULL;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "e:")) != -1) {
+	while ((opt = getopt(argc, argv, "e:m:")) != -1) {
 		switch (opt) {
 		case 'e': event_file = optarg; break;
+		case 'm': mouse_file = optarg; break;
 		default: die("unknown flag '%c'\n", opt);
 		}
 	}
@@ -478,12 +488,29 @@ main(int argc, char *argv[])
 		.on_key = handle_key
 	};
 	if (evdev_init(&evk, event_file) == -1)
-		die("failed to init evdev: %s\n", strerror(errno));
+		die("failed to init evdev for kbd: %s\n", strerror(errno));
+
+	struct evdev_kbd evm = {
+		.on_key = handle_mouse,
+		.on_mouse = handle_mouse
+	};
+	if (mouse_file) {
+		if (evdev_init(&evm, mouse_file) == -1)
+			die("failed to init evdev for mouse: %s\n", strerror(errno));
+	}
 
 	struct pollfd pfds[] = {
 		{ .fd = term.pty, .events = POLLIN },
 		{ .fd = evk.fd, .events = POLLIN },
+		{ .fd = evm.fd, .events = POLLIN },
 	};
+
+	int pfd_count = sizeof(pfds)/sizeof(*pfds);
+	if (mouse_file == NULL) {
+		// We aren't going to bother too much if the mouse event file
+		// is missing.
+		pfd_count--;
+	}
 
 	// Main event loop.
 	// Note: writing controls whether we are waiting for more input or not.
@@ -493,7 +520,7 @@ main(int argc, char *argv[])
 	int rc;
 	int writing = 0;
 	for (;;) {
-		rc = poll(pfds, sizeof(pfds)/sizeof(*pfds), writing ? draw_timeout : -1);
+		rc = poll(pfds, pfd_count, writing ? draw_timeout : -1);
 		if (rc == -1) {
 			// EINTR is not a fatal error, and simply means that
 			// the call to poll was interrupted.
@@ -526,6 +553,14 @@ main(int argc, char *argv[])
 			continue;
 		}
 
+		if (mouse_file != NULL && pfds[2].revents & POLLIN) {
+			// Mouse event, probably
+			if (evdev_handle(&evm) == -1) {
+				perror("evdev_handle");
+				break;
+			}
+		}
+
 		if (pfds[1].revents & POLLIN) {
 			// Key press, probably
 			if (evdev_handle(&evk) == -1) {
@@ -551,5 +586,7 @@ main(int argc, char *argv[])
 	fbink_close(fb);
 	free_xkb();
 	evdev_free(&evk);
+	if (mouse_file != NULL)
+		evdev_free(&evm);
 	term_free(&term);
 }
