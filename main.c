@@ -36,6 +36,12 @@ static int draw_timeout = 10;
  * Most of the time, this is immediately after it is set. */
 static int refresh_next = 0;
 
+static int max_rows, max_cols;
+
+static int mouse_cell_x, mouse_cell_y;
+static int mouse_min_x, mouse_min_y;
+static int mouse_max_x, mouse_max_y;
+
 /* Some keys require special handling. */
 static struct {
 	int key;
@@ -303,12 +309,54 @@ handle_key(struct evdev *_, struct input_event ev)
 }
 
 static void
+set_mouse_coords(struct input_event ev)
+{
+	float xf = (float)mouse_cell_x/max_cols, yf = (float)mouse_cell_y/max_rows;
+
+	if (ev.code == ABS_X) {
+		xf = (double)(ev.value - mouse_min_x) / mouse_max_x;
+	} else if (ev.code == ABS_Y) {
+		yf = (double)(ev.value - mouse_min_y) / mouse_max_y;
+	}
+
+	mouse_cell_x = xf * max_cols;
+	mouse_cell_y = yf * max_rows;
+
+	printf("x %d y %d\n", mouse_cell_x, mouse_cell_y);
+}
+
+/** Gets the min and max X and Y coordinates for the mouse. */
+static void
+get_mouse_region(struct evdev *evm)
+{
+	mouse_min_x = libevdev_get_abs_minimum(evm->ctx, ABS_X);
+	mouse_min_y = libevdev_get_abs_minimum(evm->ctx, ABS_Y);
+
+	mouse_max_x = libevdev_get_abs_maximum(evm->ctx, ABS_X);
+	mouse_max_y = libevdev_get_abs_maximum(evm->ctx, ABS_Y);
+
+	printf("mouse region: x %d -> %d; y %d -> %d\n",
+			mouse_min_x, mouse_max_x,
+			mouse_min_y, mouse_max_y);
+}
+
+static void
 handle_mouse(struct evdev *_, struct input_event ev)
 {
 	printf("Event: %s %s %d\n",
 	       libevdev_event_type_get_name(ev.type),
 	       libevdev_event_code_get_name(ev.type, ev.code),
 	       ev.value);
+
+	if (ev.type == EV_ABS) {
+		set_mouse_coords(ev);
+		return;
+	} else if (ev.type != EV_KEY) {
+		// ???
+		return;
+	}
+
+	// TODO: Write left/right click
 }
 
 void
@@ -478,6 +526,9 @@ main(int argc, char *argv[])
 	fbink_cls(fb, &fbc, NULL, 0);
 	fbink_get_state(&fbc, &s);
 
+	max_rows = s.max_rows;
+	max_cols = s.max_cols;
+
 	if (init_term(s.max_rows, s.max_cols, args) != 0)
 		die("failed to init vt: %s\n", strerror(errno));
 
@@ -497,6 +548,7 @@ main(int argc, char *argv[])
 	if (mouse_file) {
 		if (evdev_init(&evm, mouse_file) == -1)
 			die("failed to init evdev for mouse: %s\n", strerror(errno));
+		get_mouse_region(&evm);
 	}
 
 	struct pollfd pfds[] = {
