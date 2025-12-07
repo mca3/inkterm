@@ -363,6 +363,20 @@ csi(struct term *term)
 		if (!narg) args[0] = 1;
 		term_move(term, term->row, args[0]-1);
 		break;
+	case 'h': // Set mode
+		for (int i = 0; i < narg; i++) {
+			printf("request set mode: %d\n", args[i]);
+			if (args[i] == 1000)
+				term->state |= STATE_MOUSE;
+		}
+		break;
+	case 'l': // Unset mode
+		for (int i = 0; i < narg; i++) {
+			printf("request unset mode: %d\n", args[i]);
+			if (args[i] == 1000)
+				term->state &= ~(STATE_MOUSE);
+		}
+		break;
 	case 'H': // CUP; Set cursor pos
 	case 'f': // CUP; Set cursor pos
 		if (!narg) args[0] = args[1] = 1; // Doubles as home
@@ -712,4 +726,17 @@ term_clearline(struct term *term, int dir)
 		damageline(term, term->row);
 		break;
 	}
+}
+
+void
+term_emit_mouse_click(struct term *term, int row, int col, int btn)
+{
+	if ((term->state & STATE_MOUSE) == 0)
+		// We do not want mouse events right now.
+		return;
+
+	int ret = snprintf(term->esc_buf, sizeof(term->esc_buf), "\x1b[<%d;%d;%dM", btn, col, row);
+	write(term->pty, term->esc_buf, ret);
+	ret = snprintf(term->esc_buf, sizeof(term->esc_buf), "\x1b[<%d;%d;%dm", btn, col, row);
+	write(term->pty, term->esc_buf, ret);
 }

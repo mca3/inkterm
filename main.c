@@ -356,7 +356,7 @@ handle_mouse(struct evdev *_, struct input_event ev)
 		return;
 	}
 
-	// TODO: Write left/right click
+	term_emit_mouse_click(&term, mouse_cell_y + 1, mouse_cell_x + 1, 0);
 }
 
 void

@@ -18,6 +18,9 @@
 /* Hack workaround. */
 #define STATE_EATNEXT		(1 << 1)
 
+/* Turned on when the terminal program is requesting mouse events. */
+#define STATE_MOUSE		(1 << 2)
+
 /* Helper defines for damage tracking. */
 #define DAMAGE_WIDTH (8*sizeof(term_damage_t))
 #define DAMAGE_ROW(term, idx) ((idx)/((term)->cols))
@@ -111,5 +114,11 @@ void term_clear(struct term *term, int dir);
  * Anything else does nothing.
  */
 void term_clearline(struct term *term, int dir);
+
+/** Send a mouse click event to the terminal.
+ * If the terminal is not currently requesting mouse events, the call to this
+ * function will be ignored.
+ */
+void term_emit_mouse_click(struct term *term, int row, int col, int btn);
 
 #endif /* ifndef TERM_H */
